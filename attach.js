@@ -11,7 +11,7 @@
  * 
  */
 var r = require;
-define(['require', 'zest/com', 'text'], function(require, $z, text) {
+define(['require', 'zest', 'text'], function(require, $z, text) {
   var attach = {};
   
   //for attaching modules loaded by plugins, we need to provide

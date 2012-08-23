@@ -375,7 +375,7 @@ var parseItems = function($$) {
     items.push(DOMbuffer)
   return items;  
 }
- 
+
 /*
  * addItems
  * Private function to insert the given item list at the given index on the region
