@@ -153,22 +153,16 @@ if (typeof console !== 'undefined') {
  *
  */
 if (!client) $z.render = {}; else
-$z.render = function(structure, options, complete) {
-  var $$ = this.render.Buffer();
-  
+$z.render = function(structure, options, container, complete) {
   //no options
   if (arguments.length == 2) {
     complete = options;
     options = null;
   }
   
-  //if complete is a node, assume injection
-  if (complete.nodeType) {
-    var node = complete;
-    complete = function() {
-      node.appendChild($$);
-    }
-  }
+  complete = complete || function(){};
+  
+  var $$ = $z.render.Buffer(container);
   
   //require
   if (typeof structure == 'string')
@@ -177,12 +171,7 @@ $z.render = function(structure, options, complete) {
     });
   //standard render
   else
-    return $z.render.renderItem(structure, options, $$.write, function() {
-      var items = parseItems($$);
-      if (items.length == 1)
-        items = items[0];
-      complete($$, items);
-    });
+    return $z.render.renderItem(structure, options, $$.write, complete);
 }
 
 /*
@@ -220,7 +209,6 @@ $z.render = function(structure, options, complete) {
  * 
  */
 $z.render.renderItem = function(structure, options, write, complete) {
-  
   if (complete === undefined) {
     complete = write;
     write = options;
@@ -231,7 +219,7 @@ $z.render.renderItem = function(structure, options, write, complete) {
   
   //template or structure function
   if (typeof structure == 'function' && !structure.template)
-    return this.renderItem(structure(options), write, complete);
+    return this.renderItem(structure(options), {}, write, complete);
   
   //Direct forms:
   //html string
@@ -295,36 +283,6 @@ var capitalCase = function(arr) {
 }
 $z.render.getComponentType = function(component) {
   return component.type || capitalCase(($z.getModuleId(component) || '').split('/'));
-}
-
-
-
-/*
- * $z.render.Buffer
- * Allows for generalising scripts to work both client and server side
- *
- * Usage:
- * var b = $z.render.Buffer();
- *
- * b.write(Node / HTML);
- *
- * s.write(b);
- *
- */
-if (client)
-$z.render.Buffer = function() {
-  var buffer = document.createDocumentFragment();
-  buffer.write = function($$) {
-    if (typeof $$ == 'string') {
-      var _$$ = document.createElement('div');
-      _$$.innerHTML = $$;
-      for (var i = 0; i < _$$.childNodes.length; i++)
-        buffer.appendChild(_$$.childNodes[i]);
-    }
-    else
-      buffer.appendChild($$);
-  }
-  return buffer;
 }
 
 
@@ -487,6 +445,55 @@ $z.render.labelComponent = function(html, options) {
     return html;
 }
 
+
+/*
+ * $z.render.Buffer
+ * Allows for generalising scripts to work both client and server side
+ *
+ * Usage:
+ * var b = $z.render.Buffer();
+ *
+ * b.write(Node / HTML);
+ *
+ * s.write(b);
+ *
+ */
+
+ //create a buffer for a container (hidden or in the dom)
+ //can write another buffer, a dom element, or an element array
+ 
+if (client)
+var _div = document.createElement('div');
+$z.render.Buffer = function(container) {
+  var buffer = {};
+  buffer.container = container || document.createElement('div');
+  buffer.write = function($$) {
+    //html string
+    if (typeof $$ == 'string') {
+      _div.innerHTML = $$;
+      buffer.write({
+        write: true,
+        container: _div
+      });
+    }
+    //another buffer (assumed to have its container out the dom as in a hidden buffer - so container not used)
+    else if ($$.write) {
+      while ($$.container.childNodes.length > 0)
+        buffer.container.appendChild($$.container.childNodes[0]);
+    }
+    //dom element
+    else if ($$.nodeType) {
+      buffer.container.appendChild($$);
+    }
+    //array of elements
+    else if ($$.length) {
+      for (var i = 0; i < $$.length; i++)
+        buffer.container.appendChild($$[i]);
+    }
+  }
+  return buffer;
+}
+
 $z.render.renderComponentTemplate = function(component, options, write, complete) {
   // Render the template
   var html = typeof component.template == 'function' ? component.template(options) : component.template;
@@ -510,21 +517,24 @@ $z.render.renderComponentTemplate = function(component, options, write, complete
   var $$ = $z.render.Buffer();
   $$.write(html);
     
+  var completedRegions = 0;
   //do region replacements
   if (regions) {
     for (var i = 0; i < regions.length; i++) {
       var region = regions[i];
       var regionNode;
-      for (var i = 0; i < $$.childNodes.length; i++) {
-        var node = $$.childNodes[i];
+      for (var j = 0; j < $$.container.childNodes.length; j++) {
+        var node = $$.container.childNodes[j];
         if (node.getAttribute && node.getAttribute('region-placeholder') == region) {
           regionNode = node;
           break;
         }
-        var matches = $('[region-placeholder=' + region + ']', node);
-        if (matches.length > 0) {
-          regionNode = matches[0];
-          break;
+        if (node.nodeType == 1) {
+          var matches = $('[region-placeholder=' + region + ']', node);
+          if (matches.length > 0) {
+            regionNode = matches[0];
+            break;
+          }
         }
       }
       
@@ -539,16 +549,31 @@ $z.render.renderComponentTemplate = function(component, options, write, complete
       if (typeof regionStructure == 'function' && !regionStructure.template)
         regionStructure = regionStructure.call(component, options);
       
-      $z.render.renderItem(regionStructure, options, region$$.write, function() {});
-      
-      regionNode.parentNode.insertBefore(region$$, regionNode);
-      regionNode.parentNode.removeChild(regionNode);
+      $z.render.renderItem(regionStructure, options, region$$.write, function() {
+        //insert the rendered region into position
+        while (region$$.container.childNodes.length > 0) {
+          regionNode.parentNode.insertBefore(region$$.container.childNodes[0], regionNode);
+        }
+        regionNode.parentNode.removeChild(regionNode);
+        
+        //detect completion
+        completedRegions++;
+        if (completedRegions == regions.length) {
+          write($$);
+          complete();
+        }
+      });
     }
   }
-    
-  write($$);
+  else {
+    write($$);
+    complete();
+  }
   
-  complete();
+  //immediately write into outer buffer. dom references are maintained as region renders.
+  //write($$);
+  
+  //complete();
 }
 
 
@@ -587,7 +612,10 @@ $z.getModuleId = function(module, definitionMatching) {
 }
 
 $z.Page = {
-  template: '{`body`}'
+  _extend: {
+    body: $z.extend
+  },
+  template: '<div>{`body`}</div>'
 };
 
 /*
