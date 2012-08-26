@@ -615,7 +615,7 @@ $z.Page = {
   _extend: {
     body: $z.extend
   },
-  template: '<div>{`body`}</div>'
+  template: '{`body`}'
 };
 
 /*
