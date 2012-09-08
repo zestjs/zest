@@ -1,9 +1,8 @@
 define ['zest', 'require'], ($z, require) ->
   options:
     cssStream: ''
-    title: undefined
-    onTitle: (setTitle) ->
-      setTitle ''
+    title: 'Zest Server'
+    deferTitle: false
     requireConfig: {}
     appId: ''
     attachScript: """
@@ -29,7 +28,7 @@ define ['zest', 'require'], ($z, require) ->
       <script type='text/javascript' src='#{ o.requireConfig.baseUrl }/require.js'></script>
       <link rel='stylesheet' type='text/css' href='#{ o.cssStream }'></link>
       <script type='text/javascript'>
-        require(['#{ o.appId }'], function(app) { new app(); });
+        #{ if o.appId then "require(['#{ o.appId }'], function(app) { new app(); });" else "" }
       </script>
       {`head`}
     </head>
@@ -37,18 +36,16 @@ define ['zest', 'require'], ($z, require) ->
     </html>
   """
   
-  head: (o) ->
+  head:
     template: (o) -> """
       <title>#{o.title}</title>
     """
   
-    load: (_o, done) ->
-      if (o.title)
-        _o.title = o.title
+    load: (o, done) ->
+      if !o.deferTitle
         return done()
-        
-      o.onTitle (title) ->
-        _o.title = title
+      
+      o.global.setTitle = (title) ->
+        o.title = title
         done()
-  
-  
+      

@@ -138,8 +138,6 @@ $z.App = {
     routes: $z.overwrite
   },
   
-  htmlTemplate: 'cs!zest/html',
-  
   routes: {},
   
   getRoute: function(reqData) {
@@ -365,7 +363,13 @@ $z.Component = $z.creator({
   prototype: {
     $: function(selector) {
       var matches = $(selector, this.$$[0].parentNode);
-      var filtered = $('');
+      
+      var filtered;
+      if (matches instanceof NodeList)
+        filtered = [];
+      else
+        filtered = $(''); //empty selector
+      
       for (var i = 0; i < matches.length; i++) {
         var ownerComponent = $z.getComponent(matches[i]);
         if (ownerComponent == this)
