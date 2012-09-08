@@ -184,11 +184,10 @@ $z.App = {
       //check route against routers
       var routeData = this.constructor.getRoute(toData);
       
-      routeData.setTitle = function(title) {
+      routeData.global = $z.attach.global;
+      routeData.global.setTitle = function(title) {
         document.title = title;
       }
-      
-      routeData.global = $z.attach.global;
       
       if (routeData) {
         require([routeData.route], function() {
