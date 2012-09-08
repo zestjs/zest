@@ -49,9 +49,15 @@ $z.attach = function(deps, def, options) {
   }
   scriptNode.parentNode.removeChild(scriptNode);
   
+  options.$$ = $$;
+  if (options.global) 
+    for (var o in options.global)
+      $z.attach.global[o] = options.global[o];
+  options.global = $z.attach.global;
+  
   $z.attach.attachments.push({
     $$: $$,
-    options: $$,
+    options: options,
     component: null
   });
   var index = $z.attach.attachments.length - 1;
@@ -63,6 +69,7 @@ $z.attach = function(deps, def, options) {
 }
 $z.attach.attachments = [];
 $z.attach.curAttach = 0;
+$z.attach.global = {};
 
 $z.attach.doAttach = function() {
   while (this.attachments[this.curAttach] && this.attachments[this.curAttach].component) {

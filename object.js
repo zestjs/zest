@@ -44,8 +44,14 @@ $z = function(){ return $z.main.apply(this, arguments); }
 
 $z.log = $z.dir = function(){}
 if (typeof console !== 'undefined') {
-  $z.log = console.log || $z.log;
-  $z.dir = console.dir || $z.dir;
+  if (console.log)
+    $z.log = function(str) {
+      console.log(str);
+    }
+  if (console.dir)
+    $z.dir = function(str) {
+      console.dir(str);
+    }
 }
 
 /*
@@ -231,8 +237,11 @@ var e = $z.extend = function extend(a, b, rules, slashing) {
   rules = checkRules(rules, a);
   slashing = checkSlashing(rules, slashing);
   
+  //NB adjust so that '_extend' only gets changed at the end
+  
   for (var p in b)
     if ((b.hasOwnProperty && b.hasOwnProperty(p)) || !b.hasOwnProperty) {
+      
       var v = b[p], out, rule;
       
       type = e.getType(v);
@@ -243,9 +252,10 @@ var e = $z.extend = function extend(a, b, rules, slashing) {
       try {
         out = rule.override(a[rule.p], v, type == 'object' ? e.deriveRules(rules, rule.p) : null, slashing);
       }
-      catch (e) {
+      catch (er) {
         $z.dir(a);
-        console.log('$z.extend: "' + rule.p + '" override error. \n ->' + (e.message || e));
+        $z.dir(b);
+        console.log('$z.extend: "' + rule.p + '" override error. \n ->' + (er.message || er));
       }
       
       if (out !== undefined)
@@ -561,7 +571,7 @@ $z.create = function(inherits, definition) {
     implement: e.IGNORE,
     make: e.IGNORE,
     integrate: e.IGNORE,
-    built: e.IGNORE,
+    built: e.IGNORE
   };
   
   //state variables
@@ -577,7 +587,7 @@ $z.create = function(inherits, definition) {
     if (def.integrate)
       _integrate.push(def.integrate);
     
-    $z.extend(obj, def);
+    $z.extend(obj, def, true);
   
     if (def.make)
       def.make.call(obj, definition, def);
@@ -869,6 +879,10 @@ $z.fn = $z.create({
       return output;
     },
     remove: function(fn) {
+      if (!fn) {
+        this.fns = [];
+        return;
+      }
       for (var i = 0; i < this.fns.length; i++)
         if (this.fns[i] == fn) {
           this.fns.splice(i, 1);
@@ -909,36 +923,34 @@ $z.fn = $z.create({
     return out2 !== undefined ? out2 : out1;
   }, undefined),
   STOP_DEFINED: function() {
+    var args = Array.prototype.splice.call(arguments, 0);
     for (var i = 0; i < this.fns.length; i++) {
-      var output = this.fns[i].apply(this._this, Array.prototype.concat.call(arguments, [output]));
+      var output = this.fns[i].apply(this._this, Array.prototype.concat.call(args, [output]));
       if (output !== undefined)
         return output;
     }
     return undefined;
   },
-  // f.on(function(next) {}); f(complete);
-  ASYNC_STEP: function() {
+  // f.on(function(arg, next) { next() }); f(arg, complete);
+  NEXT: function() {
     var args = Array.prototype.splice.call(arguments, 0);
-    var complete = args[0];
-    args.splice(0, 1);
     
     var self = this;
-    var getNext = function(i) {
+    var i = 0;
+    var makeNext = function(i) {
       return function() {
         if (self.fns[i])
-          self.fns[i].apply(self._this, [getNext(i + 1)].concat(args));
-        else
-          complete.apply(self._this);
+          self.fns[i].apply(self._this, args.concat([makeNext(i + 1)]));
       }
-    };
-    return getNext(0)(args);
+    }
+    return makeNext(0)();
   },
   AND: createRunFunction(function(out1, out2) {
     return out1 && out2;
   }, true),
   OR: createRunFunction(function(out1, out2) {
     return out1 || out2;
-  }, true)
+  }, false)
 });
 
 /*

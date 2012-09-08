@@ -83,30 +83,48 @@ if (z)
  * is provided.
  *
  */
-$z.main = function(componentSelector) {
+$z.main = function(componentSelector, context) {
+    
+  componentSelector = componentSelector || '*';
+  context = context || document.body;
   
-  if (!componentSelector)
-    componentSelector = '*';
+  if (context.nodeType || !context.length)
+    context = [context];
   
-  var parts = componentSelector.split(' ');
-  var outparts = [];
-  for (var i = 0; i < parts.length; i++) {
-    var subparts = parts[i].split('#');
-    outparts.push((subparts[0] != '' && subparts[0] != '*' ? '[component=' + subparts[0] + ']' : '[component]') + (subparts[1] ? '#' + subparts[1] : ''));
+  var firstPart = componentSelector.substr(0, componentSelector.indexOf(' ')) || componentSelector;
+  
+  var subparts = firstPart.split('#');
+  var firstSelector = (subparts[0] != '' && subparts[0] != '*' ? '[component=' + subparts[0] + ']' : '[component]') +
+    (subparts[1] ? '#' + subparts[1] : '');
+  
+  //do first selection
+  var matches = $(firstSelector, context);
+  
+  //if we're at the last depth
+  if (firstPart == componentSelector) {
+    for (var i = 0; i < matches.length; i++)
+      if (matches[i].$z)
+        matches[i] = matches[i].$z;
+        
+    if (matches.length == 1 && componentSelector != '*')
+      return matches[0];
+    else
+      return matches;
   }
-
-  var selection = $(outparts.join(' '));
   
-  for (var i = 0; i < selection.length; i++) {
-    if (selection[i].$z)
-      selection[i] = selection[i].$z;
+  //run through matches, creating array of element arrays for matches
+  var allMatches = [];
+  for (var i = 0; i < matches.length; i++) {
+    if (matches[i].$z)
+      allMatches = allMatches.concat(matches[i].$z.$$);
+    else
+      allMatches.push(matches[i]);
   }
   
-  if (selection.length == 1 && componentSelector != '*')
-    return selection[0];
-  else
-    return selection;
+  //run next level selector on this
+  return $z(componentSelector.substr(firstPart.length + 1), allMatches);
 }
+
 
 
 /*
@@ -114,10 +132,17 @@ $z.main = function(componentSelector) {
  * Console log function existence wrappers
  * 
  */
+
 $z.log = $z.dir = function(){}
 if (typeof console !== 'undefined') {
-  $z.log = console.log || $z.log;
-  $z.dir = console.dir || $z.dir;
+  if (console.log)
+    $z.log = function(str) {
+      console.log(str);
+    }
+  if (console.dir)
+    $z.dir = function(str) {
+      console.dir(str);
+    }
 }
   
 /* 
@@ -154,29 +179,42 @@ if (typeof console !== 'undefined') {
  */
 if (!client) $z.render = {}; else
 $z.render = function(structure, options, container, complete) {
-  //no options
-  if (arguments.length == 2) {
-    complete = options;
-    options = null;
+  //no options or complete
+  if (arguments.length == 3) {
+    if (typeof container == 'function') {
+      complete = container;
+      container = options;
+      options = null;
+    }
   }
+  if (container.length)
+    container = container[0];
   
   complete = complete || function(){};
   
-  var $$ = $z.render.Buffer(container);
+  var $$ = $z.render.Buffer();
+  
+  var _complete = function() {
+    var _c = $z.render.Buffer(container);
+    _c.write($$);
+    complete();
+  }
   
   //require
   if (typeof structure == 'string')
     require([structure], function(structure) {
-      $z.render.renderItem(structure, options, $$.write, complete);
+      $z.render.renderItem(structure, options, $$.write, _complete);
     });
   //standard render
   else
-    return $z.render.renderItem(structure, options, $$.write, complete);
+    return $z.render.renderItem(structure, options, $$.write, _complete);
 }
 
 /*
  * $z.render.renderItem
  * Renders the given structure / structure item
+ *
+ * global options now supported and passed down. options.global.
  *
  * NB: all $z.render.* functions not to be used directly!
  *
@@ -217,9 +255,17 @@ $z.render.renderItem = function(structure, options, write, complete) {
   if (complete === undefined)
     complete = function() {}
   
+  if (typeof structure == 'undefined') {
+    complete();
+    return;
+  }
+  
+  options = options || {};
+  options.global = options.global || {};
+  
   //template or structure function
   if (typeof structure == 'function' && !structure.template)
-    return this.renderItem(structure(options), {}, write, complete);
+    return this.renderItem(structure(options), { global: options.global }, write, complete);
   
   //Direct forms:
   //html string
@@ -230,12 +276,10 @@ $z.render.renderItem = function(structure, options, write, complete) {
 
   //structure array
   else if (structure instanceof Array)
-    return this.renderArray(structure, {}, write, complete);
+    return this.renderArray(structure, { global: options.global }, write, complete);
 
   //component (*static and dynamic components purely indicated by a 'template' property)
   else if (structure.template) {
-    
-    options = options || {};
     
     //dynamic component
     if (structure.attach) {
@@ -256,7 +300,7 @@ $z.render.renderItem = function(structure, options, write, complete) {
 
   //structure item
   else if (structure.component) {
-    options = {};
+    options = { global: options.global };
     if (structure.id)
       options.id = structure.id;
     if (structure.type)
@@ -267,6 +311,7 @@ $z.render.renderItem = function(structure, options, write, complete) {
       if (exclude.indexOf(p) == -1)
         options[p] = structure[p];
     
+    //nb require structure.component
     return this.renderItem(structure.component, options, write, complete);
   }
   else {
@@ -282,7 +327,14 @@ var capitalCase = function(arr) {
   return arr.join('');
 }
 $z.render.getComponentType = function(component) {
-  return component.type || capitalCase(($z.getModuleId(component) || '').split('/'));
+  if (component.type)
+    return component.type;
+  
+  var moduleId = $z.getModuleId(component) || '';
+  
+  if (moduleId.substr(0, 3) == 'cs!')
+    moduleId = moduleId.substr(3);
+  return capitalCase(moduleId.split('/'));
 }
 
 
@@ -298,9 +350,13 @@ if (client)
 $z.render.renderArray = function(structure, options, write, complete) {
   var i = 0;
   var next = function() {
-    if (i == structure.length)
+    if (i == structure.length) {
       complete();
-    $z.render.renderItem(structure[i++], options, write, next);
+      return;
+    }
+    $z.render.renderItem(structure[i++], options, write, function() {
+      next();
+    });
   }
   next();
 }
@@ -367,42 +423,63 @@ $z.render.renderStaticComponent = function(component, options, write, complete) 
   
   var self = this;
   
-  (component.load || function(options, complete) { complete(); })(options, function() {
-    
+  var next = function() {
     self.renderComponentTemplate(component, options, write, function() {
+      //nb work out how to do get css baseUrl for mapping
+      var baseUrl = undefined;
       
       // Apply css
       if (component.css)
-        css.add(typeof component.css == 'function' ? component.css(options) : component.css);
-      
-      // Run piping
-      if (component.pipe)
-        options = component.pipe(options) || options;
+        css.add(typeof component.css == 'function' ? component.css(options) : component.css/*, baseUrl*/);
       
       complete(options);
       
     });
-  });
+  }
+  
+  if (component.load)
+    component.load(options, next);
+  else
+    next();
 }
 
 $z.render.renderDynamicComponent = function(component, options, write, complete) {
 
   var $$ = [];
+  var tmpBuf = $z.render.Buffer();
     
   $z.render.renderStaticComponent(component, options, function(_$$) {
     //intercept write to build up the element array for attachment
-    for (var i = 0; i < _$$.childNodes.length; i++)
-      $$.push(_$$.childNodes[i]);
+    tmpBuf.write(_$$);
     
-    write(_$$);
+    for (var i = 0; i < tmpBuf.container.childNodes.length; i++)
+      $$.push(tmpBuf.container.childNodes[i]);
+    
+    write(tmpBuf);
     
   }, function(options) {
+    
+    var global = options.global;
+    var _options = options;
+    
+    // run piping
+    options = component.pipe ? component.pipe(options) || {} : {};
+    
+    options.global = global;
+    
+    // NB need to handle attach as string and loading the attach! variation to do the attachment
+    
     if (typeof component.attach == 'function' && !component.attach.attach)
       component.attach($$, options);
       
     else if (component.attach && component.attach.attach)
       component.attach.attach($$, options);
       
+    //NB store attach return and have non-memory leaking dispose:
+      //    curId++;
+      //$$[0].$zcid = curId;
+      //components[curId] = z;
+    
     complete();
     
   });
@@ -426,7 +503,7 @@ $z.render.renderDynamicComponent = function(component, options, write, complete)
  * If no type is provided, then the 'component' attribute is set but empty.
  *
  */
-$z.render.labelComponent = function(html, options) {  
+$z.render.labelComponent = function(html, options) {
   var attributes = '';
   if (options.type != null)
     attributes += ' component' + (options.type !== '' ? '="' + options.type + '"' : '');
@@ -468,7 +545,7 @@ $z.render.Buffer = function(container) {
   var buffer = {};
   buffer.container = container || document.createElement('div');
   buffer.write = function($$) {
-    //html string
+    // html string
     if (typeof $$ == 'string') {
       _div.innerHTML = $$;
       buffer.write({
@@ -476,16 +553,16 @@ $z.render.Buffer = function(container) {
         container: _div
       });
     }
-    //another buffer (assumed to have its container out the dom as in a hidden buffer - so container not used)
+    // another buffer (assumed to have its container out the dom as in a hidden buffer - so container not used)
     else if ($$.write) {
       while ($$.container.childNodes.length > 0)
         buffer.container.appendChild($$.container.childNodes[0]);
     }
-    //dom element
+    // dom element
     else if ($$.nodeType) {
       buffer.container.appendChild($$);
     }
-    //array of elements
+    // array of elements
     else if ($$.length) {
       for (var i = 0; i < $$.length; i++)
         buffer.container.appendChild($$[i]);
@@ -498,28 +575,31 @@ $z.render.renderComponentTemplate = function(component, options, write, complete
   // Render the template
   var html = typeof component.template == 'function' ? component.template(options) : component.template;
   
+  //if its a page template, don't bother with labelling
+  //if (!$z.inherits(component, $z.Page))
   html = $z.render.labelComponent(html, options);
   
   // Find all instances of '{`regionName`}'
   var regions = html.match(/\{\`\w+\`\}/g);
   
-  //map the region replacements into placeholder divs to pick up
+  // map the region replacements into placeholder divs to pick up
   if (regions)
     for (var i = 0; i < regions.length; i++) {
       var region = regions[i];
       var regionName = region.substr(2, region.length - 4);
       regions[i] = regionName;
       delete region;
-      html = html.replace(region, '<div region-placeholder=' + regionName + '></div>');
+      html = html.replace(region, '<span style="display: none;" region-placeholder=' + regionName + '></span>');
     }
   
-  //render into temporary buffer
+  // render into temporary buffer
   var $$ = $z.render.Buffer();
   $$.write(html);
-    
-  var completedRegions = 0;
-  //do region replacements
-  if (regions) {
+  
+  var regionNodes = {};
+  
+  // pickup region placeholders
+  if (regions)
     for (var i = 0; i < regions.length; i++) {
       var region = regions[i];
       var regionNode;
@@ -538,39 +618,48 @@ $z.render.renderComponentTemplate = function(component, options, write, complete
         }
       }
       
-      //create region buffer
-      var region$$ = $z.render.Buffer();
+      regionNodes[region] = regionNode;
+    }
+  
+  // then render into the body
+  write($$);
+  
+  // do region rendering
+  if (!regions) {
+    complete();
+    return;
+  }
+    
+  var completedRegions = 0;
+  for (var i = 0; i < regions.length; i++)
+    (function(region, regionNode) {
+      var regionStructure = component[region] || options[region];
       
-      var regionStructure = component[region];
-      if (!regionStructure) {
-        regionStructure = options[region];
-        delete options[region];
-      }
+      delete options.id;
+      delete options.type;
+      
       if (typeof regionStructure == 'function' && !regionStructure.template)
         regionStructure = regionStructure.call(component, options);
       
-      $z.render.renderItem(regionStructure, options, region$$.write, function() {
-        //insert the rendered region into position
-        while (region$$.container.childNodes.length > 0) {
-          regionNode.parentNode.insertBefore(region$$.container.childNodes[0], regionNode);
-        }
+      //possible recursive templating? probably not
+      $z.render.renderItem(regionStructure, options, function($$) {
+        var _$$ = $z.render.Buffer();
+        _$$.write($$);
+        while (_$$.container.childNodes.length > 0)
+          regionNode.parentNode.insertBefore(_$$.container.childNodes[0], regionNode);
+          
+      }, function() {
         regionNode.parentNode.removeChild(regionNode);
         
-        //detect completion
+        // detect completion
         completedRegions++;
-        if (completedRegions == regions.length) {
-          write($$);
+        if (completedRegions == regions.length)
           complete();
-        }
       });
-    }
-  }
-  else {
-    write($$);
-    complete();
-  }
+      
+    })(regions[i], regionNodes[regions[i]]);
   
-  //immediately write into outer buffer. dom references are maintained as region renders.
+  // immediately write into outer buffer. dom references are maintained as region renders.
   //write($$);
   
   //complete();
@@ -594,7 +683,7 @@ $z.getContext = function(obj) {
           return obj == this ? context = c : c;
 }
 $z.getModuleId = function(module, definitionMatching) {
-  //find the current context
+  // find the current context
   var context = this.getContext();
 
   var moduleId = null;
@@ -611,13 +700,6 @@ $z.getModuleId = function(module, definitionMatching) {
   return moduleId;
 }
 
-$z.Page = {
-  _extend: {
-    body: $z.extend
-  },
-  template: '{`body`}'
-};
-
 /*
  * $z.getComponent
  * Given any html element, find the component responsible for its management
@@ -632,15 +714,39 @@ $z.getComponent = function(el) {
     }
   }
   
-  if (el.getAttribute && typeof el.getAttribute('component') === 'string' && typeof el.$z == 'object' && el.$z !== null)
+  if (el.getAttribute && typeof el.getAttribute('component') === 'string')
     return el.$z;
 
   if (!el.previousSibling && el.parentNode == document.body)
     return;
   
-  return $z.getComponent(el.previousSibling || el.parentNode);
+  //back track up components
+  var prevNode = el;
+  while (prevNode = prevNode.previousSibling) {
+    //if its a component, return if we fall under its cover
+    if (prevNode.$z)
+      for (var i = 0; i < prevNode.$z.$$.length; i++)
+        if (prevNode.$z.$$[i] == el)
+          return prevNode.$z;
+  }
+  
+  //if not, go up to the parent node
+  return $z.getComponent(el.parentNode);
 }
 
+$z.dispose = function(domElement) {
+  if (domElement.length)
+    domElement = domElement[0];
+  var componentElements = $('[component]', domElement);
+  for (var i = 0; i < componentElements.length; i++) {
+    var z = componentElements[i].$z;
+    if (!z)
+      continue;
+    if (z.dispose)
+      z.dispose();
+  }
+  domElement.innerHTML = '';
+}
 
 return $z;
 }));

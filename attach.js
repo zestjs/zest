@@ -45,8 +45,8 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
     var config = $z.deepCopy(requirejs.s.contexts[contextName].config);
     //construct a hidden context for inspecting modules without adding them to the build
     config.context = 'attach';
-    config.config['require-is/is'] = config.config['require-is/is'] || {};
-    config.config['require-is/is'].render = false;
+    config.config['is'] = config.config['is'] || {};
+    config.config['is'].render = false;
     attach.req = requirejs.config(config);
     
     //dependency map - moduleid against its dependency ids
@@ -151,18 +151,12 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
         if (requires[i].substr(0, 3) == 'is!' && requires[i].indexOf(':') != -1)
           throw 'Cannot use \'else\' is!render includes (\':\') with lazy attachment.';
         
-        //attach-only requires to be included
-        if (requires[i].substr(0, 11) == 'is!~render?')
-          requires[i] = requires[i].substr(11);
-          
-        
-        if (requires[i].substr(0, 10) != 'is!render?') {
+        if (requires[i].substr(0, 10) != 'is!render?' || requires[i].substr(0, 11) == 'is!~render?') {
           //add dependencies excluding the render! dependencies
           //instant callback
           attach.req([requires[i]], function(mod) {
             closures.push([mod, deps[i]]);
           });
-          
         }
         else {
           //exclude render closures
@@ -194,11 +188,13 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
       }
       
       //load the module in the hidden context
-      attach.req([componentModuleId, 'attach'], function(component, att) {
+      attach.req([componentModuleId, 'zest/attach'], function(component, att) {
       
         //not lazy attachment - throw error
-        if (typeof component.attach != 'function')
+        if (typeof component.attach != 'function') {
+          $z.log(componentModuleId);
           throw 'Attach! lazy attachment generation only applies to components with an "attach" function.';
+        }
         
         /* if (config.quickattach) {
           req([name], load);
@@ -217,7 +213,7 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
         }
         //otherwise load from file normally
         if (!parser)
-          text.get(req.toUrl(componentModuleId), function(code) {
+          text.get(require.toUrl(componentModuleId), function(code) {
             complete(generateAttachment(att, component, code));
           });
       });
@@ -236,22 +232,30 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
     return attachId;
   }
   
-  attach.serializeComponent = function(component, requires, deps, closures) {
+  attach.serializeComponent = function(component, requires, deps, closures, exclude) {
     
     var def = component._definition || component;
+    requires = requires || [];
+    deps = deps || [];
+    closures = closures || [];
+    exclude = (exclude !== undefined) ? exclude : true;
     
     //build up exclusion list
-    var ignore = ['type', 'id', 'css', 'options', 'template', 'pipe', 'attachExclusions', 'load'].concat(component.attachExclusions || []);
-    if (component.regions)
-      for (var i = 0; i < component.regions.length; i++)
-        ignore.push(component.regions[i]);
-    
-    //remove the exclusion items
-    var ignored = {};
-    for (var i = 0; i < ignore.length; i++) {
-      if (def[ignore[i]] !== undefined) {
-        ignored[ignore[i]] = def[ignore[i]]
-        delete def[ignore[i]];
+    if (exclude) {
+      var ignore = ['type', 'id', 'css', 'options', 'template', 'pipe', 'attachExclusions', 'load'].concat(component.attachExclusions || []);
+      
+      var regions = (typeof component.template == 'function' ? component.template.toString() : component.template || '').match(/\{\`\w+\`\}/g);
+      if (regions)
+        for (var i = 0; i < regions.length; i++)
+          ignore.push(regions[i].substr(2, regions[i].length - 4));
+            
+      //remove the exclusion items
+      var ignored = {};
+      for (var i = 0; i < ignore.length; i++) {
+        if (def[ignore[i]] !== undefined) {
+          ignored[ignore[i]] = def[ignore[i]]
+          delete def[ignore[i]];
+        }
       }
     }
     
@@ -263,6 +267,17 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
         [$z.Component, '$z.Component'],
         [$z.Options, '$z.Options'],
         [$z.InstanceChains, '$z.InstanceChains'],
+        [$z.extend, '$z.extend'],
+        [$z.extend.REPLACE, '$z.extend.REPLACE'],
+        [$z.extend.IGNORE, '$z.extend.IGNORE'],
+        [$z.extend.DEFINE, '$z.extend.DEFINE'],
+        [$z.extend.FILL, '$z.extend.FILL'],
+        [$z.extend.CHAIN_AFTER, '$z.extend.CHAIN_AFTER'],
+        [$z.extend.CHAIN_BEFORE, '$z.extend.CHAIN_BEFORE'],
+        [$z.extend.ARR_APPEND, '$z.extend.ARR_APPEND'],
+        [$z.extend.ARR_PREPEND, '$z.extend.ARR_PREPEND'],
+        [$z.extend.STR_APPEND, '$z.extend.STR_APPEND'],
+        [$z.extend.STR_PREPEND, '$z.extend.STR_PREPEND'],
         [$z.Pop, '$z.Pop']
       ];
       
@@ -287,10 +302,11 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
         }
         else if (typeof imp.attach == 'function') {
           //lazy mixed attachment -> replace the implementor in the serialization with 'attach!'
-          for (var j = 0; j < deps.length; j++)
-            for (var k = 0; k < closures.length; k++)
-              if (closures[k][1] == [deps[j]] && closures[k][0] == imp)
-                requires[j] = 'attach!' + requires[j];
+          for (var j = 0; j < closures.length; j++)
+            if (closures[j][0] == imp)
+              for (var k = 0; k < deps.length; k++)
+                if (deps[k] == closures[j][1])
+                  requires[k] = 'zest/attach!' + requires[k];
         }
       }
     }
@@ -332,7 +348,7 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
       //provide full deconstruction
       if (value && value._definition)
         //perform the serialization here
-        return '<@expression>' + attach.serializeComponent(value._definition, requires, deps, closures) + '</@expression>';
+        return '<@expression>$z.create(' + attach.serializeComponent(value._definition, requires, deps, closures, false) + ')</@expression>';
       
       //function syntax to remove quotes at the end
       if (typeof value === 'function')
@@ -351,12 +367,14 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
     
     for (var i = 0; i < expressions.length; i++)
       serialStr = serialStr.replace(expressions[i], expressions[i].substr(14, expressions[i].length - 29)
+        .replace(/\\'/g, '\'')
         .replace(/\\"/g, '"')
-        .replace(/\\f/g, '\f')
-        .replace(/\\b/g, '\b')
-        .replace(/\\n/g, '\n')
-        .replace(/\\t/g, '\t')
-        .replace(/\\r/g, '\r'));
+        .replace(/([^\\])\\f/g, '$1\f')
+        .replace(/([^\\])\\b/g, '$1\b')
+        .replace(/([^\\])\\n/g, '$1\n')
+        .replace(/([^\\])\\t/g, '$1\t')
+        .replace(/([^\\])\\r/g, '$1\r')
+        .replace(/\\\\/g, '\\'));
     
     //for zest components, we provide a 'deconstruction' (_definition exists)
     if (def !== component)

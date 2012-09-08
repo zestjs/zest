@@ -40,6 +40,183 @@ if (object && render) {
 
 var client = typeof window !== 'undefined' && typeof window.location !== 'undefined';
  
+ 
+ //routes resolve to pages
+//$z.App should me in Main
+
+var checkPattern = function(reqData, pattern) {
+  patternParts = pattern.split('/');
+  
+  reqData.parts = reqData.parts || reqData.url.split('/');
+  
+  var checkCnt = reqData.parts.length;
+  
+  if (patternParts[patternParts.length - 1] == '*') {
+    checkCnt = patternParts.length - 1;
+    if (reqData.parts.length < checkCnt)
+      return;
+  }
+  else if (patternParts.length != checkCnt)
+    return;
+  
+  for (var i = 0; i < checkCnt; i++) {
+    //url matches pattern
+    if (reqData.parts[i] == patternParts[i])
+      continue;
+    
+    //pattern variable
+    else if (patternParts[i].substr(0, 1) == '{' && patternParts[i].substr(patternParts[i].length - 1, 1) == '}') {
+      var curParam = patternParts[i].substr(1, patternParts[i].length - 2);
+      reqData[curParam] = reqData.parts[i];
+    }
+    
+    //no match
+    else
+      return false;
+  }
+  
+  return true;
+}
+
+$z.service = {
+  NONE: {
+    post: function(url, data, callback) {
+      if (callback)
+        callback();
+    },
+    get: function(url, data, callback) {
+      if (callback)
+        callback;
+    }
+  },
+  HTTP: {
+    post: function(url, data, callback) {
+      if (typeof data == 'function') {
+        callback = data;
+        data = {};
+      }
+      callback = callback || function(){}
+      $.ajax({
+        url: url,
+        type: 'POST',
+        data: JSON.stringify(data),
+        contentType: 'application/json; charset=utf-8',
+        dataType: 'json',
+        success: function(data) {
+          callback(data);
+        },
+        error: function(err) {
+          callback(err, true);
+        }
+      });
+    },
+    get: function(url, data, callback) {
+      if (typeof data == 'function') {
+        callback = data;
+        data = {};
+      }
+      callback = callback || function(){}
+      $.ajax({
+        url: url,
+        type: 'GET',
+        contentType: 'charset=utf-8',
+        dataType: 'json',
+        success: function(data) {
+          callback(data);
+        },
+        error: function(err) {
+          callback(err, true);
+        }
+      });      
+    }
+  }
+};
+
+$z.App = {
+  implement: [$z.constructor],
+  _extend: {
+    routes: $z.overwrite
+  },
+  
+  htmlTemplate: 'cs!zest/html',
+  
+  routes: {},
+  
+  getRoute: function(reqData) {
+    if (reqData.method != 'GET')
+      return false;
+    //check route against routers
+    for (var route in this.routes) {
+      if (checkPattern(reqData, route)) {
+        if (typeof this.routes[route] == 'string') {
+          reqData.route = this.routes[route];
+          return reqData;
+        }
+      }
+    }
+    return false;
+  },
+  
+  construct: function(o) {
+    $z.app = this;
+    this.push_state = !!(window.history && history.pushState);
+    this.curUrl = window.location.pathname;
+    this.transition = $z.fn($z.fn.OR); //keyed by from matrix
+    var self = this;
+    if (this.push_state)
+      window.onpopstate = function(state) {
+        self.render(window.location.pathname);
+      }
+  },
+  prototype: {
+    render: function(url, transition) {
+      // don't render if we're on the same page
+      if (url == this.curUrl)
+        return;
+      
+      //  first check for defined transitions
+      var fromData = this.constructor.getRoute({ url: this.curUrl, method: 'GET' });
+      var toData = this.constructor.getRoute({ url: url, method: 'GET' });
+      
+      if (transition && this.transition(fromData, toData)) {
+        this.curUrl = url;
+        return true;
+      }
+      
+      //check route against routers
+      var routeData = this.constructor.getRoute(toData);
+      
+      routeData.setTitle = function(title) {
+        document.title = title;
+      }
+      
+      routeData.global = $z.attach.global;
+      
+      if (routeData) {
+        require([routeData.route], function() {
+          $z.dispose(document.body);
+          $z.render(routeData.route, routeData, document.body);
+        });
+        this.curUrl = url;
+        return true;
+      }
+      
+      //if not a route in the app, go to url
+      window.location = url;
+    },
+    go: function(url) {
+      if (this.render(url))
+        this.push(url);
+    },
+    push: function(url) {
+      if (this.push_state) {
+        this.curUrl = url;
+        history.pushState(null, null, url);
+      }
+    }
+  }
+}
+ 
 /*
  * $z.Component
  * Creates a component with rendering or as attach-only
@@ -107,35 +284,46 @@ var client = typeof window !== 'undefined' && typeof window.location !== 'undefi
 var dynamic = false;
 $z.Component = $z.creator({
   
-  implement: [$z.constructor, $z.Options, $z.InstanceChains, $z.Pop],
+  implement: [$z.constructor, /*$z.Options, */$z.InstanceChains, $z.Pop],
   
   _extend: {
+    type: $z.extend.REPLACE,
     pipe: $z.extend.CHAIN,
     template: $z.extend.REPLACE,
     construct: $z.extend.CHAIN,
+    options: $z.overwrite,
     prototype: $z.extend,
     css: function(a, b) {
+      
+      if (a === undefined)
+        return b;
+      
       var funcify = function(str) {
         return function() {
           return str;
         }
       }
-      if (typeof a == 'function' && a.run) {
-        a.on(b);
-        return a;
-      }
-      else if (typeof a == 'string')
+      if (typeof a != 'function' && typeof b != 'function')
+        return a + b;
+      
+      
+      if (typeof a == 'string')
         a = funcify(a);
       if (typeof b == 'string')
         b = funcify(b);
         
-      var f = $z.fn($z.fn.createRunFunction(function(a, b) {
-        return a + b;
-      }, ''));
-      f.on(b);
-      return f;
+      if (!a.run) {
+        var _a = a;
+        a = $z.fn($z.fn.createRunFunction(function(a, b) {
+          return a + b;
+        }, ''));
+        a.on(_a);
+      }
+      
+      a.on(b);
     },
     attachExclusions: $z.extend.ARR_APPEND,
+    attachInclusions: $z.extend.ARR_APPEND,
     'prototype.dispose': $z.extend.CHAIN
   },
   
@@ -177,7 +365,7 @@ $z.Component = $z.creator({
   prototype: {
     $: function(selector) {
       var matches = $(selector, this.$$[0].parentNode);
-      var filtered = [];
+      var filtered = $('');
       for (var i = 0; i < matches.length; i++) {
         var ownerComponent = $z.getComponent(matches[i]);
         if (ownerComponent == this)
@@ -186,54 +374,9 @@ $z.Component = $z.creator({
       return filtered;
     },
     $z: function(selector) {
-      var matches = $z(selector);
-      if (!(matches instanceof Array))
-        matches = [matches];
-      
-      function getParentPossibilities(component, parents) {
-        parents = parents || [];
-        
-        var prevNode = component.$$[0];
-        
-        while (prevNode = prevNode.previousSibling) {
-          if (prevNode.$z)
-            break;
-        }
-        if (prevNode && prevNode.$z) {
-          parents.push(prevNode.$z);
-          return getParentPossibilities(prevNode.$z, parents);
-        }
-        else {
-          if (component.$$[0].parentNode == document.body) {
-            if (document.body.$z)
-              parents.push(document.body.$z);
-            return parents;
-          }
-          else
-            parents.push($z.getComponent(component.$$[0].parentNode));
-          return parents;
-        }        
-      }
-      var filtered = [];
-      for (var i = 0; i < matches.length; i++) {
-        var parents = getParentPossibilities(matches[i]);
-        
-        //if this is a 'possible' parent, give it the benefit of the doubt
-        for (var j = 0; j < parents.length; j++) {
-          if (parents[j] === this) {
-            filtered.push(matches[i]);
-            break;
-          }
-        }
-      }
-      if (filtered.length == 1)
-        filtered = filtered[0];
-      return filtered;
+      return $z(selector, this.$$);
     },
     dispose: function() {
-      //clear dynamic regions
-      //for (var region in this.regions)
-      //  this.regions[region].clear();
       
       //clear subcomponents
       var subcomponents = this.$z();
@@ -254,89 +397,6 @@ $z.Component = $z.creator({
   }
 });
 
-
-/*
- * $z.Region
- *
- * var s = $z.Region(wrapper, [structure]);
- *
- * wrapper is the region wrapper
- * Structure is the optional structure to provide, anything that can go into $z.render is allowed
- *
- * 
- * The region provides the following methods:
- *
- * s.add([DOMArray])
- * s.append(structure);
- * s.remove(index);
- * s.appendAfter(structure, index);
- * s.clear();
- * etc (obviously all reserved words for structure labels!)
- *
- * List can be accessed from numerical properties of the region
- * s.length
- * s[0] etc.
- * 
- */
-$z.Region = $z.constructor({
-  construct: function(wrapper, structure) {
-    this.wrapper = wrapper;
-    
-    addItems.call(this, parseItems(wrapper.childNodes));
-    
-    if (structure)
-      this.append(structure);
-  },
-  prototype: {
-    append: function(structure, options) {
-      var $$ = $z.render(structure, options);
-      $z.dom.insert($$, this.wrapper);
-      addItems.call(this, parseItems($$));
-      return this;
-    },
-    clear: function() {
-      for (var i = 0; i < this.length; i++) {
-        
-        if (!(this[i] instanceof Array)) {
-          //dispose components
-          if (this[i].dispose)
-            this[i].dispose();
-        }
-        else {
-          //remove DOM elements
-          $z.dom.remove(this[i]);
-        }
-        
-        //clear references
-        delete this[i];
-      }
-      this.length = 0;
-    },
-    remove: function(index) {
-      //remove the item at index
-      //dispose components
-      if (!(this[index] instanceof Array))
-        if (this[index].dispose)
-          this[index].dispose();
-      
-      //remove DOM elements
-      $z.dom.remove(this[index]);
-      
-      //clear references
-      delete this[index];
-      this.length--;
-      
-      for (var i = index; i < this.length; i++)
-        this[i] = this[i + 1];
-        
-      delete this[this.length];
-    },
-    appendAfter: function(structure, item) {
-      //append the given structure after the label or index "item"
-      
-    }
-  }
-});
 
 /*
  * parseItems
