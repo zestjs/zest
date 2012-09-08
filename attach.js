@@ -45,8 +45,8 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
     var config = $z.deepCopy(requirejs.s.contexts[contextName].config);
     //construct a hidden context for inspecting modules without adding them to the build
     config.context = 'attach';
-    config.config['is'] = config.config['is'] || {};
-    config.config['is'].render = false;
+    config.config['is/is'] = config.config['is/is'] || {};
+    config.config['is/is'].render = false;
     attach.req = requirejs.config(config);
     
     //dependency map - moduleid against its dependency ids
