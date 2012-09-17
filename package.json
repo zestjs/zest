@@ -5,7 +5,8 @@
     "dependencies": {
       "text": "requirejs/text/2.0.1",
       "selector": "guybedford/selector",
-      "css": "guybedford/css"
+      "css": "guybedford/css",
+      "zoe": "zestjs/zoe"
     }
   }
 }

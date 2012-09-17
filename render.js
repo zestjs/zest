@@ -75,21 +75,52 @@ if (z)
  *
  * Convenience method provided is a 'component selector'
  *
- * 'myComponent' -> '[component=myComponent]'
- * 'myComponent#asdf' -> '[componet=myComponent]#asdf'
- * etc
- *
- * If a DOM element has a '$z' object on it, that object
- * is provided.
- *
  */
-$z.main = function(componentSelector, context) {
-    
-  componentSelector = componentSelector || '*';
-  context = context || document.body;
+$z.main = function(selector, context) {
+  return $z.$z(selector, context);
+};
+
+/*
+ * Component selector
+ *
+ * Allows for selecting hierarchies of components, separated by spaces
+ *
+ * Id and type selection can be made for example:
+ *
+ * #component-3 Picture
+ *
+ * Will give all components of type Picture inside the component of id picture3
+ *
+ *
+ * When multiple components are returned, an array is provided
+ * When a single component is found, the direct component is provided.
+ *
+ * As with the contextual selector, context can be a container or array of consecutive dom nodes.
+ * In the case of a container, selection is made excluding the container, but
+ * for a list of dom nodes, the items themselves are included in the selection root.
+ * 
+ * Ocassionally, one would expect to get a list of items, but it may turn out to only
+ * be one when there is only one item. For ease of coding it can be useful to still get
+ * this single item back in an array. To specify this, simply provide the suffix "[]" to the
+ * selector.
+ *
+ * If no selector is provided, all components are returned.
+ * If no context is provided, this.$$ is checked, followed by document.
+ *
+ * This allows for contextual component selection with
+ *
+ * component.$z = $z.$z
+ * 
+ */
+
+$z.$z = function(componentSelector, context) {
   
-  if (context.nodeType || !context.length)
-    context = [context];
+  componentSelector = componentSelector || '*';
+  context = context || this.$$ || document.body;
+  
+  var asList = componentSelector.substr(componentSelector.length - 2, 2) == '[]';
+  if (asList)
+    componentSelector = componentSelector.substr(0, componentSelector.length - 2);
   
   var firstPart = componentSelector.substr(0, componentSelector.indexOf(' ')) || componentSelector;
   
@@ -97,16 +128,16 @@ $z.main = function(componentSelector, context) {
   var firstSelector = (subparts[0] != '' && subparts[0] != '*' ? '[component=' + subparts[0] + ']' : '[component]') +
     (subparts[1] ? '#' + subparts[1] : '');
   
-  //do first selection
-  var matches = $(firstSelector, context);
   
+  var matches = $z.$(firstSelector, context);
+    
   //if we're at the last depth
   if (firstPart == componentSelector) {
     for (var i = 0; i < matches.length; i++)
-      if (matches[i].$z)
-        matches[i] = matches[i].$z;
+      if (typeof matches[i].$zid == 'number')
+        matches[i] = $z._components[matches[i].$zid];
         
-    if (matches.length == 1 && componentSelector != '*')
+    if (matches.length == 1 && !asList)
       return matches[0];
     else
       return matches;
@@ -114,15 +145,63 @@ $z.main = function(componentSelector, context) {
   
   //run through matches, creating array of element arrays for matches
   var allMatches = [];
+  var com;
   for (var i = 0; i < matches.length; i++) {
-    if (matches[i].$z)
-      allMatches = allMatches.concat(matches[i].$z.$$);
+    if (typeof matches[i].$zid == 'number' && (com = $z._components[matches[i].$zid]))
+      allMatches = allMatches.concat(com.$$);
     else
       allMatches.push(matches[i]);
   }
   
   //run next level selector on this
   return $z(componentSelector.substr(firstPart.length + 1), allMatches);
+  
+}
+
+
+/*
+ * Contextual selector
+ *
+ * this.$$ is used as the context if not provided
+ *
+ * allowing for:
+ *
+ * component.$ = $z.$
+ *
+ * giving contextual selection
+ *
+ * context as array includes array items in selection.
+ * context as a container excludes the container itself (standard selection).
+ *
+ */
+$z.$ = function(selector, context) {
+  
+  context = context || this.$$ || document;
+  
+  if (context.nodeType)
+    return $(selector, context);
+  
+  matches = $(selector, context[0].parentNode);
+  var filtered;
+  if (matches instanceof NodeList)
+    filtered = [];
+  else
+    filtered = $(''); //empty selector
+  
+  for (var i = 0; i < matches.length; i++) {
+    var parent = matches[i];
+    outer:
+    while (parent && parent != document.body) {
+      for (var j = 0; j < context.length; j++)
+        if (context[j] == parent) {
+          filtered.push(matches[i]);
+          break outer;
+        }
+      parent = parent.parentNode;
+    }
+  }
+  
+  return filtered;
 }
 
 
@@ -191,6 +270,9 @@ $z.render = function(structure, options, container, complete) {
     container = container[0];
   
   complete = complete || function(){};
+  
+  options = options || {};
+  options.global = options.global || $z._global;
   
   var $$ = $z.render.Buffer();
   
@@ -443,11 +525,13 @@ $z.render.renderStaticComponent = function(component, options, write, complete) 
     next();
 }
 
+$z._components = [];
+
 $z.render.renderDynamicComponent = function(component, options, write, complete) {
 
   var $$ = [];
   var tmpBuf = $z.render.Buffer();
-    
+  
   $z.render.renderStaticComponent(component, options, function(_$$) {
     //intercept write to build up the element array for attachment
     tmpBuf.write(_$$);
@@ -467,18 +551,14 @@ $z.render.renderDynamicComponent = function(component, options, write, complete)
     
     options.global = global;
     
-    // NB need to handle attach as string and loading the attach! variation to do the attachment
+    $$[0].$zid = $z._components.length;
     
+    // NB need to handle attach as string and loading the attach! variation to do the attachment
     if (typeof component.attach == 'function' && !component.attach.attach)
-      component.attach($$, options);
+      $z._components[$$[0].$zid] = component.attach($$, options);
       
     else if (component.attach && component.attach.attach)
-      component.attach.attach($$, options);
-      
-    //NB store attach return and have non-memory leaking dispose:
-      //    curId++;
-      //$$[0].$zcid = curId;
-      //components[curId] = z;
+      $z._components[$$[0].$zid] = component.attach.attach($$, options);
     
     complete();
     
@@ -510,8 +590,11 @@ $z.render.labelComponent = function(html, options) {
   
   if (options.id != null)
     attributes += ' id="' + options.id + '"';
+    
+  //clear space at the beginning of the html to avoid unnecessary text nodes
+  html = html.replace(/^\s*/, '');
   
-  var firstTag = html.match(/^\s*<\w+/);
+  var firstTag = html.match(/<\w+/);
   if (firstTag)
     return html.substr(0, firstTag[0].length) + attributes + html.substr(firstTag[0].length);
   else if (attributes != '') {
@@ -588,8 +671,17 @@ $z.render.renderComponentTemplate = function(component, options, write, complete
       var region = regions[i];
       var regionName = region.substr(2, region.length - 4);
       regions[i] = regionName;
+      
+      //check if there is a tag before the current one, and copy its type if there is
+      var formerTag = html.match(new RegExp('(<\/(\\w*)[^>]*>|<(\\w*)[^>]*\/>)\\s*' + region));
+      var placeholderTag = 'span'
+      if (formerTag)
+        placeholderTag = formerTag[2] || formerTag[3] || 'span';
+        
+      console.log(placeholderTag);
+      
+      html = html.replace(region, '<' + placeholderTag + ' style="display: none;" region-placeholder=' + regionName + '></' + placeholderTag + '>');
       delete region;
-      html = html.replace(region, '<span style="display: none;" region-placeholder=' + regionName + '></span>');
     }
   
   // render into temporary buffer
@@ -715,37 +807,54 @@ $z.getComponent = function(el) {
   }
   
   if (el.getAttribute && typeof el.getAttribute('component') === 'string')
-    return el.$z;
+    return $z._components[el.$zid];
 
   if (!el.previousSibling && el.parentNode == document.body)
     return;
   
   //back track up components
   var prevNode = el;
+  var com;
   while (prevNode = prevNode.previousSibling) {
     //if its a component, return if we fall under its cover
-    if (prevNode.$z)
-      for (var i = 0; i < prevNode.$z.$$.length; i++)
-        if (prevNode.$z.$$[i] == el)
-          return prevNode.$z;
+    if (typeof prevNode.$zid == 'number' && (com = $z._components[prevNode.$zid]))
+      for (var i = 0; i < com.$$.length; i++)
+        if (com.$$[i] == el)
+          return com;
   }
   
   //if not, go up to the parent node
   return $z.getComponent(el.parentNode);
 }
 
-$z.dispose = function(domElement) {
-  if (domElement.length)
-    domElement = domElement[0];
-  var componentElements = $('[component]', domElement);
-  for (var i = 0; i < componentElements.length; i++) {
-    var z = componentElements[i].$z;
-    if (!z)
-      continue;
-    if (z.dispose)
-      z.dispose();
+/*
+ * $z.dispose
+ *
+ * Given a dom element or array of dom elements, disposes of all components and sub components on those elements
+ *
+ * Removes the dom elements entirely
+ *
+ */
+
+$z.dispose = function(els) {
+  if (els.nodeType)
+    els = els.childNodes;
+  
+  //find all components and run disposal hooks
+  var components = $z('*[]', els);
+  for (var i = 0; i < components.length; i++) {
+    if (components[i] && components[i].dispose && !components[i]._disposed) {
+      components[i].dispose(true);
+      components[i]._disposed = true;
+    }
+    var cIndex = $z._components.indexOf(components[i]);
+    if (cIndex >= 0)
+      $z._components[$z._components.indexOf(components[i])] = undefined; //dereference component
   }
-  domElement.innerHTML = '';
+  
+  for (var i = els.length - 1; i >= 0; i--)
+    if (els[i].parentNode)
+      els[i].parentNode.removeChild(els[i]);
 }
 
 return $z;

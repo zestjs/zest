@@ -365,8 +365,8 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
     
     var expressions = serialStr.match(/"<@expression>[\s\S]*?<\/@expression>"/g);
     
-    for (var i = 0; i < expressions.length; i++)
-      serialStr = serialStr.replace(expressions[i], expressions[i].substr(14, expressions[i].length - 29)
+    for (var i = 0; i < expressions.length; i++) {
+      var replacement = expressions[i].substr(14, expressions[i].length - 29)
         .replace(/\\'/g, '\'')
         .replace(/\\"/g, '"')
         .replace(/([^\\])\\f/g, '$1\f')
@@ -374,7 +374,10 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
         .replace(/([^\\])\\n/g, '$1\n')
         .replace(/([^\\])\\t/g, '$1\t')
         .replace(/([^\\])\\r/g, '$1\r')
-        .replace(/\\\\/g, '\\'));
+        .replace(/\\\\/g, '\\')
+        .replace(/\$/g,'$$$$');
+      serialStr = serialStr.replace(expressions[i], replacement);
+    }
     
     //for zest components, we provide a 'deconstruction' (_definition exists)
     if (def !== component)

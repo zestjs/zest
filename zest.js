@@ -14,7 +14,7 @@
 (function (root, factory) {
   // AMD. Register as an anonymous module.
   if (typeof define === 'function' && define.amd)
-    define(['module', './render', './object', 'selector', 'css'], factory);
+    define(['module', './render', 'zoe', 'selector', 'css'], factory);
   // Browser globals
   else
     root.$z = factory({
@@ -101,6 +101,7 @@ $z.service = {
         type: 'POST',
         data: JSON.stringify(data),
         contentType: 'application/json; charset=utf-8',
+        accept: 'application/json',
         dataType: 'json',
         success: function(data) {
           callback(data);
@@ -120,6 +121,7 @@ $z.service = {
         url: url,
         type: 'GET',
         contentType: 'charset=utf-8',
+        accept: 'application/json',
         dataType: 'json',
         success: function(data) {
           callback(data);
@@ -184,7 +186,7 @@ $z.App = {
       //check route against routers
       var routeData = this.constructor.getRoute(toData);
       
-      routeData.global = $z.attach.global;
+      routeData.global = $z._global;
       routeData.global.setTitle = function(title) {
         document.title = title;
       }
@@ -279,6 +281,7 @@ $z.App = {
  */
 
 var dynamic = false;
+
 $z.Component = $z.creator({
   
   implement: [$z.constructor, /*$z.Options, */$z.InstanceChains, $z.Pop],
@@ -290,7 +293,7 @@ $z.Component = $z.creator({
     construct: $z.extend.CHAIN,
     options: $z.overwrite,
     prototype: $z.extend,
-    css: function(a, b) {
+    css: function STR_FUNC_APPEND(a, b) {
       
       if (a === undefined)
         return b;
@@ -321,12 +324,16 @@ $z.Component = $z.creator({
     },
     attachExclusions: $z.extend.ARR_APPEND,
     attachInclusions: $z.extend.ARR_APPEND,
-    'prototype.dispose': $z.extend.CHAIN
+    'prototype.dispose': function FIRST_DEFINED_CHAIN(a, b) {
+      a = $z.extend.buildChain(a, $z.fn.STOP_FIRST_DEFINED);
+      a.after(b);
+      return a;
+    }
   },
   
   attach: function($$, options) {
     options.$$ = $$;
-    new this(options);
+    return new this(options);
   },
   
   make: function() {
@@ -352,49 +359,32 @@ $z.Component = $z.creator({
   
   construct: function(options) {
     if (!options.$$)
-      throw 'No template defined for component creation.';
+      return $z.render(this.constructor, options, document.createDocumentFragment());
 
     this.$$ = options.$$;
     delete options.$$;
     
-    this.$$[0].$z = this;
+    $z._components[this.$$[0].$zid] = this;
+    
+    this.o = options;
+
   },
   prototype: {
-    $: function(selector) {
-      var matches = $(selector, this.$$[0].parentNode);
+    $: $z.$,
+    $z: $z.$z,
+    _unbind: true,
+    dispose: function(system) {
       
-      var filtered;
-      if (matches instanceof NodeList)
-        filtered = [];
-      else
-        filtered = $(''); //empty selector
-      
-      for (var i = 0; i < matches.length; i++) {
-        var ownerComponent = $z.getComponent(matches[i]);
-        if (ownerComponent == this)
-          filtered.push(matches[i]);
-      }
-      return filtered;
-    },
-    $z: function(selector) {
-      return $z(selector, this.$$);
-    },
-    dispose: function() {
-      
-      //clear subcomponents
-      var subcomponents = this.$z();
-      for (var i = 0; i < subcomponents.length; i++) {
-        //ensure we avoid duplicate subcomponent disposal
-        if (subcomponents[i].$$)
-          subcomponents[i].dispose();
+      //cut out and call $z.dispose to do the work, it will call this back with the system flag
+      if (!system) {
+        $z.dispose(this.$$);
+        return true;
       }
       
-      delete this.$$[0].$z;
-      
-      var parent = this.$$[0].parentNode;
-      for (var i = 0; i < this.$$.length; i++)
-        parent.removeChild(this.$$[i]);
-      
+      //automatically unbind jquery events on the elements
+      if (this._unbind && $.fn && $.fn.jquery)
+        this.$('*').unbind();
+        
       delete this.$$;
     }
   }

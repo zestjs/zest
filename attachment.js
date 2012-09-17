@@ -52,8 +52,8 @@ $z.attach = function(deps, def, options) {
   options.$$ = $$;
   if (options.global) 
     for (var o in options.global)
-      $z.attach.global[o] = options.global[o];
-  options.global = $z.attach.global;
+      $z._global[o] = options.global[o];
+  options.global = $z._global;
   
   $z.attach.attachments.push({
     $$: $$,
@@ -69,12 +69,14 @@ $z.attach = function(deps, def, options) {
 }
 $z.attach.attachments = [];
 $z.attach.curAttach = 0;
-$z.attach.global = {};
+$z._global = $z._global || {};
+$z._components = $z._components || {};
 
 $z.attach.doAttach = function() {
   while (this.attachments[this.curAttach] && this.attachments[this.curAttach].component) {
     var item = this.attachments[this.curAttach];
-    item.component.attach.call(item.component, item.$$, item.options);
+    item.$$[0].$zid = $z._components.length;
+    $z._components[item.$$[0].$zid] = item.component.attach.call(item.component, item.$$, item.options);
     this.curAttach++;
   }  
 }
