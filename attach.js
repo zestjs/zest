@@ -42,7 +42,7 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
     attach.req = require;
   }
   else {
-    var config = $z.deepCopy(requirejs.s.contexts[contextName].config);
+    var config = $z.extend({}, requirejs.s.contexts[contextName].config, 'DREPLACE');
     //construct a hidden context for inspecting modules without adding them to the build
     config.context = 'attach';
     config.config['is/is'] = config.config['is/is'] || {};

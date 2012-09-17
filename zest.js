@@ -35,7 +35,7 @@
 }(this, function (module, render, object, $, css) {
 if (object && render) {
   $z = object;
-  $z = $z.overwrite($z, render);
+  $z = $z.extend($z, render, 'REPLACE');
 }
 
 var client = typeof window !== 'undefined' && typeof window.location !== 'undefined';
@@ -137,7 +137,7 @@ $z.service = {
 $z.App = {
   _implement: [$z.Constructor],
   _extend: {
-    routes: $z.overwrite
+    routes: 'APPEND'
   },
   
   routes: {},
@@ -281,18 +281,23 @@ $z.App = {
  */
 
 var dynamic = false;
-
-$z.Component = $z.creator({
+$z.fn.STOP_FIRST_DEFINED = function(self, args, fns) {
+  var output = fns[0].apply(self, args);
+  if (output !== 'undefined')
+    return;
+  for (var i = 1; i < fns.length; i++)
+    fns[i].apply(self, args);
+}
+$z.Component = {
   
-  _implement: [$z.Constructor, /*$z.Options, */$z.InstanceChains, $z.Pop],
+  _implement: [$z.Constructor],
   
   _extend: {
-    type: $z.extend.REPLACE,
-    pipe: $z.extend.CHAIN,
-    template: $z.extend.REPLACE,
-    construct: $z.extend.CHAIN,
-    options: $z.overwrite,
-    prototype: $z.extend,
+    type: 'REPLACE',
+    pipe: 'CHAIN',
+    load: $z.extend.makeChain($z.fn.ASYNC),
+    template: 'REPLACE',
+    options: 'APPEND',
     css: function STR_FUNC_APPEND(a, b) {
       
       if (a === undefined)
@@ -322,13 +327,9 @@ $z.Component = $z.creator({
       
       a.on(b);
     },
-    attachExclusions: $z.extend.ARR_APPEND,
-    attachInclusions: $z.extend.ARR_APPEND,
-    'prototype.dispose': function FIRST_DEFINED_CHAIN(a, b) {
-      a = $z.extend.buildChain(a, $z.fn.STOP_FIRST_DEFINED);
-      a.after(b);
-      return a;
-    }
+    attachExclusions: 'ARR_APPEND',
+    attachInclusions: 'ARR_APPEND',
+    'prototype.dispose': $z.extend.makeChain($z.fn.STOP_FIRST_DEFINED)
   },
   
   attach: function($$, options) {
@@ -369,7 +370,6 @@ $z.Component = $z.creator({
     $z._components[this.$$[0].$zid] = this;
     
     this.o = options;
-
   },
   prototype: {
     $: $z.$,
@@ -390,7 +390,7 @@ $z.Component = $z.creator({
       delete this.$$;
     }
   }
-});
+};
 
 
 /*

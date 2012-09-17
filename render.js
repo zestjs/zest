@@ -63,7 +63,7 @@ var z = typeof $z !== 'undefined' ? $z : null;
 $z = function(){ return $z.main.apply(this, arguments); }
 if (z)
   if (z.extend)
-    z.overwrite($z, z);
+    z.extend($z, z, 'REPLACE');
   else
     z.attach = $z.attach; 
 
@@ -678,8 +678,6 @@ $z.render.renderComponentTemplate = function(component, options, write, complete
       if (formerTag)
         placeholderTag = formerTag[2] || formerTag[3] || 'span';
         
-      console.log(placeholderTag);
-      
       html = html.replace(region, '<' + placeholderTag + ' style="display: none;" region-placeholder=' + regionName + '></' + placeholderTag + '>');
       delete region;
     }
