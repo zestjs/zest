@@ -135,7 +135,7 @@ $z.service = {
 };
 
 $z.App = {
-  implement: [$z.constructor],
+  _implement: [$z.Constructor],
   _extend: {
     routes: $z.overwrite
   },
@@ -284,7 +284,7 @@ var dynamic = false;
 
 $z.Component = $z.creator({
   
-  implement: [$z.constructor, /*$z.Options, */$z.InstanceChains, $z.Pop],
+  _implement: [$z.Constructor, /*$z.Options, */$z.InstanceChains, $z.Pop],
   
   _extend: {
     type: $z.extend.REPLACE,
@@ -336,10 +336,10 @@ $z.Component = $z.creator({
     return new this(options);
   },
   
-  make: function() {
+  _make: function() {
     dynamic = false;
   },
-  integrate: function(def) {
+  _integrate: function(def) {
     if (dynamic)
       return;
 
@@ -352,9 +352,11 @@ $z.Component = $z.creator({
         return;
       }
   },
-  built: function() {
+  _built: function() {
     if (!dynamic)
       delete this.attach;
+      
+    //NB dispose gets created here!
   },
   
   construct: function(options) {
