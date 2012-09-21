@@ -754,9 +754,9 @@ $z.render.renderComponentTemplate = function(component, options, write, complete
       $z.render.renderItem(regionStructure, options, function($$) {
         var _$$ = $z.render.Buffer();
         _$$.write($$);
-        while (_$$.container.childNodes.length > 0)
-          regionNode.parentNode.insertBefore(_$$.container.childNodes[0], regionNode);
-          
+        if (_$$.container)
+          while (_$$.container.childNodes.length > 0)
+            regionNode.parentNode.insertBefore(_$$.container.childNodes[0], regionNode);          
       }, function() {
         regionNode.parentNode.removeChild(regionNode);
         
