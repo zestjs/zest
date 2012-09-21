@@ -265,7 +265,6 @@ define(['require', 'zest', 'text'], function(require, $z, text) {
         [$z, '$z'],
         [$z.Component._definition, '$z.Component'],
         [$z.Component, '$z.Component'],
-        [$z.Options, '$z.Options'],
         [$z.InstanceChains, '$z.InstanceChains'],
         [$z.extend, '$z.extend'],
         [$z.extend.REPLACE, '$z.extend.REPLACE'],

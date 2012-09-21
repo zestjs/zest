@@ -412,7 +412,7 @@ $z.render.getComponentType = function(component) {
   if (component.type)
     return component.type;
   
-  var moduleId = $z.getModuleId(component) || '';
+  var moduleId = $z.getModuleId(component) || 'component';
   
   if (moduleId.substr(0, 3) == 'cs!')
     moduleId = moduleId.substr(3);
@@ -512,7 +512,7 @@ $z.render.renderStaticComponent = function(component, options, write, complete) 
       
       // Apply css
       if (component.css)
-        css.add(typeof component.css == 'function' ? component.css(options) : component.css/*, baseUrl*/);
+        css.inject(typeof component.css == 'function' ? component.css(options) : component.css/*, baseUrl*/);
       
       complete(options);
       
@@ -622,31 +622,47 @@ $z.render.labelComponent = function(html, options) {
  //create a buffer for a container (hidden or in the dom)
  //can write another buffer, a dom element, or an element array
  
+ var getContainerTag = function(tagName) {
+  if (tagName == 'tr')
+    return 'tbody'
+  return 'div';
+ }
+ 
 if (client)
-var _div = document.createElement('div');
 $z.render.Buffer = function(container) {
   var buffer = {};
-  buffer.container = container || document.createElement('div');
+  buffer.container = container;
   buffer.write = function($$) {
     // html string
     if (typeof $$ == 'string') {
-      _div.innerHTML = $$;
+      var firstTag = $$.match(/<(\w*)[^>]*>/);
+      firstTag = (firstTag && firstTag[1]) || 'div';
+      var _container = document.createElement(getContainerTag(firstTag));
+      _container.innerHTML = $$;
       buffer.write({
         write: true,
-        container: _div
+        container: _container
       });
     }
     // another buffer (assumed to have its container out the dom as in a hidden buffer - so container not used)
     else if ($$.write) {
+      if (!buffer.container && $$.container.childNodes[0]) {
+        var firstTag = $$.container.childNodes[0].tagName.toLowerCase();
+        buffer.container = document.createElement(getContainerTag(firstTag));
+      }
       while ($$.container.childNodes.length > 0)
         buffer.container.appendChild($$.container.childNodes[0]);
     }
     // dom element
     else if ($$.nodeType) {
+      buffer.container = buffer.container || document.createElement(getContainerTag($$.tagName.toLowerCase()));
       buffer.container.appendChild($$);
     }
     // array of elements
     else if ($$.length) {
+      if (!buffer.container && $$[0]) {
+        buffer.container = document.createElement($$[0].tagName.toLowerCase());
+      }
       for (var i = 0; i < $$.length; i++)
         buffer.container.appendChild($$[i]);
     }
@@ -674,9 +690,15 @@ $z.render.renderComponentTemplate = function(component, options, write, complete
       
       //check if there is a tag before the current one, and copy its type if there is
       var formerTag = html.match(new RegExp('(<\/(\\w*)[^>]*>|<(\\w*)[^>]*\/>)\\s*' + region));
-      var placeholderTag = 'span'
-      if (formerTag)
-        placeholderTag = formerTag[2] || formerTag[3] || 'span';
+      formerTag = (formerTag && (formerTag[2] || formerTag[3])) || 'span';
+      
+      var parentTag = html.match(new RegExp('<(\\w*)[^>]*>\\s*' + region));
+      parentTag = (parentTag && parentTag[1]) || 'div';
+      
+      var placeholderTag = formerTag || 'span';
+      
+      if (parentTag == 'tbody')
+        placeholderTag = 'tr';
         
       html = html.replace(region, '<' + placeholderTag + ' style="display: none;" region-placeholder=' + regionName + '></' + placeholderTag + '>');
       delete region;
@@ -724,9 +746,6 @@ $z.render.renderComponentTemplate = function(component, options, write, complete
   for (var i = 0; i < regions.length; i++)
     (function(region, regionNode) {
       var regionStructure = component[region] || options[region];
-      
-      delete options.id;
-      delete options.type;
       
       if (typeof regionStructure == 'function' && !regionStructure.template)
         regionStructure = regionStructure.call(component, options);
