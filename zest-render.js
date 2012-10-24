@@ -3,7 +3,7 @@
  * zestjs.org  
  * 
  */
-define(['require', 'selector', 'css'], function(require, $, css) {
+define(['require', 'selector', './instance-css'], function(require, $, css) {
   
   var $z = function() { return $z.main.apply(this, arguments); }
   
@@ -20,8 +20,6 @@ define(['require', 'selector', 'css'], function(require, $, css) {
   
   //main rendering code and helpers
   
-  //by default zest main function is the component selector
-  $z.main = $z.$z;
   /*
    * Component selector
    *
@@ -54,7 +52,7 @@ define(['require', 'selector', 'css'], function(require, $, css) {
    * component.$z = $z.$z
    * 
    */
-  $z.$z = function(componentSelector, context) {
+  $z.main = $z.$z = function(componentSelector, context) {
   
     componentSelector = componentSelector || '*';
     context = context || this.$$ || document.body;
@@ -69,7 +67,7 @@ define(['require', 'selector', 'css'], function(require, $, css) {
     var firstSelector = (subparts[0] != '' && subparts[0] != '*' ? '[component=' + subparts[0] + ']' : '[component]') +
       (subparts[1] ? '#' + subparts[1] : '');
     
-    var matches = render.$(firstSelector, context);
+    var matches = $z.$(firstSelector, context);
     
     var outMatches = [];
     //if we're at the last depth
@@ -180,42 +178,35 @@ define(['require', 'selector', 'css'], function(require, $, css) {
    */
   if (!client) $z.render = {}; else
   $z.render = function(structure, options, container, complete) {
-    //no options or complete
-    if (arguments.length == 3) {
-      if (typeof container == 'function') {
-        complete = container;
-        container = options;
-        options = null;
-      }
+    if (typeof container == 'function') {
+      complete = container;
+      container = options;
+      options = {};
     }
-    if (container.length)
-      container = container[0];
-    
-    complete = complete || function(){};
-    
     options = options || {};
     options.global = options.global || $z._global;
-    
+
     var $$ = $z.render.Buffer();
-    
+
     var _complete = function() {
       var _c = $z.render.Buffer(container);
       _c.write($$);
       complete();
     }
     
-    //require
-    if (typeof structure == 'string')
-      require([structure], function(structure) {
-        $z.render.renderItem(structure, options, $$.write, _complete);
-      });
-    //standard render
-    else
-      return $z.render.renderItem(structure, options, $$.write, _complete);
+    $z.render.renderItem({
+      structure: structure,
+      options: options
+    }, $$.write, function() {
+      $z.render.Buffer(container.length ? container[0] : container).write($$);
+      if (complete)
+        complete();
+    });
   }
   
   $z._components = $z._components || {};
-  $z._nextComponentId = 1;
+  if (client)
+    $z._nextComponentId = 1;
   
   /*
    * $z.render.renderItem
@@ -268,19 +259,19 @@ define(['require', 'selector', 'css'], function(require, $, css) {
     }
     
     options = options || {};
-    options.global = options.global || {};
     
     //template or structure function
     if (typeof structure == 'function' && !structure.template) {
+      options.global = options.global || {};
       if (structure.length == 2) {
         var self = this;
         structure(options, function(output) {
-          self.renderItem(output, { global: options.global }, write, complete);
+          self.renderItem(output, { global: options.global}, write, complete);
         });
         return;
       }
       else
-        return this.renderItem(structure(options), { global: options.global }, write, complete);
+        return this.renderItem(structure(options), { global: options.global}, write, complete);
     }
     
     //Direct forms:
@@ -292,7 +283,7 @@ define(['require', 'selector', 'css'], function(require, $, css) {
   
     //structure array
     else if (structure instanceof Array)
-      return this.renderArray(structure, { global: options.global }, write, complete);
+      return this.renderArray(structure, { global: options.global || {} }, write, complete);
   
     //component (components purely indicated by a 'template' property)
     else if (structure.template) {
@@ -300,24 +291,26 @@ define(['require', 'selector', 'css'], function(require, $, css) {
       //dynamic components need a type
       options.type = options.type || structure.type; 
       //and an id (null = dont add id)
-      if (options.id === undefined)
-        options.id = structure.options && structure.options.id !== undefined ? structure.options.id : ('z' + $z._nextComponentId++);
+      if (options.id === undefined) {
+        options.id = (structure.options && structure.options.id !== undefined) ? structure.options.id : ('z' + ($z._nextComponentId++ || options.global._nextComponentId++));
+      }
+      
       return this.renderComponent(structure, options, write, complete);
     }
   
     //structure item
-    else if (structure.component) {
-      structure.options = structure.options || {};
-      structure.options.global = options.global;
+    else if (structure.structure) {
+      var _options = $z.extend({}, structure.options || {});
+      _options.global = options.global || _options.global || {};
       var self = this;
-      if (typeof structure.component == 'string') {
-        require([structure.component], function(component) {
-          self.renderItem(component, structure.options, write, complete);
+      if (typeof structure.structure == 'string') {
+        require([structure.structure], function(_structure) {
+          self.renderItem(_structure, _options, write, complete);
         });
         return null;
       }
       else
-        return this.renderItem(structure.component, structure.options, write, complete);
+        return this.renderItem(structure.structure, _options, write, complete);
     }
     else {
       $z.dir(structure);
@@ -341,7 +334,7 @@ define(['require', 'selector', 'css'], function(require, $, css) {
         complete();
         return;
       }
-      $z.render.renderItem(structure[i++], options, write, function() {
+      $z.render.renderItem(structure[i++], i == structure.length - 1 ? options : $z.extend({}, options), write, function() {
         next();
       });
     }
@@ -414,40 +407,42 @@ define(['require', 'selector', 'css'], function(require, $, css) {
     var self = this;
     
     var render = function() {
+      if (options.type === undefined)
+        options.type = '';
+      
       self.renderComponentTemplate(component, options, write, function($$) {
-        // Apply css. only works when an id is set
+        var moduleId = $z.getModuleId(component);
+        
+        // Apply instance css
         var cssId;
         if (component.css && client && options.id)
-          css.set((cssId = '$zid:' + options.id), typeof component.css == 'function' ? component.css(options) : component.css, require.toUrl('.'));
+          css.set(options.id, typeof component.css == 'function' ? component.css(options) : component.css, moduleId ? require.toUrl(moduleId) : true);
         
         // on client, component render returns element list
-        $z.render.renderAttach(component, options, $$ ? $$ : write, complete);
+        if (component.attach)
+          $z.render.renderAttach(component, options, $$ ? $$ : write, complete);
+        else
+          complete();
       });
     }
     
-    if (component.load)
-      if (component.load.length == 2)
-        component.load(options, render);
-      else {
+    if (component.load) {
+      if (component.load.length == 1) {
         component.load(options);
         render();
       }
+      else
+        component.load(options, render);
+    }
     else
       render();
   }
   
   $z.render.renderAttach = function(component, options, $$, complete) {
-    if (!component.attach)
-      return complete();
-    
     // run attachment
-    var global = options.global;
-    var _options = options;
+    var _options = component.pipe ? component.pipe(options) || {} : {};
     
-    options = component.pipe ? component.pipe(options) || {} : {};
-    
-    options.global = global;
-    
+    _options.global = options.global;
     $$[0].$zid = options.id;
     
     if (typeof component.attach === 'string') {
@@ -463,10 +458,10 @@ define(['require', 'selector', 'css'], function(require, $, css) {
     }
     else {
       if (typeof component.attach == 'function' && !component.attach.attach)
-        $z._components[options.id] = component.attach($$, options);
+        $z._components[options.id] = component.attach($$, _options);
         
       else if (component.attach && component.attach.attach)
-        $z._components[options.id] = component.attach.attach($$, options);
+        $z._components[options.id] = component.attach.attach($$, _options);
         
       complete();
     }
@@ -536,6 +531,8 @@ define(['require', 'selector', 'css'], function(require, $, css) {
    
   if (client)
   $z.render.Buffer = function(container) {
+    if (container && container.constructor == $z.fn)
+      throw 'Its a $z fn!';
     var buffer = {};
     buffer.container = container;
     buffer.toArray = function() {
@@ -655,7 +652,7 @@ define(['require', 'selector', 'css'], function(require, $, css) {
     // do region rendering
     if (!regions)
       return complete($$);
-      
+
     var completedRegions = 0;
     for (var i = 0; i < regions.length; i++)
       (function(region, regionNode) {
@@ -664,8 +661,9 @@ define(['require', 'selector', 'css'], function(require, $, css) {
         // check if the region is flat in $$
         var regionIndex = $$.indexOf(regionNode);
         
+        //copy the options for the region rendering
         if (typeof regionStructure == 'function' && !regionStructure.template)
-          regionStructure = regionStructure.call(component, options);
+          regionStructure = regionStructure.call(component, $z.extend({}, options, { id: 'IGNORE', type: 'IGNORE' }));
         
         //possible recursive templating? probably not
         $z.render.renderItem(regionStructure, options, function(_$$) {
@@ -782,20 +780,29 @@ define(['require', 'selector', 'css'], function(require, $, css) {
     //find all components and run disposal hooks
     var components = $z('*[]', els);
     for (var i = 0; i < components.length; i++) {
-      if (components[i] && components[i].dispose && !components[i]._disposed) {
-        components[i].dispose(true);
-        components[i]._disposed = true;
+      var component = components[i];
+      //dynamic disposal
+      if (component && component.dispose && !component._disposed) {
+        component.dispose(true);
+        component._disposed = true;
       }
-      for (var id in $z._components) {
-        //remove instance css (css requires are a manual disposal if desired)
-        css.set('$zid:' + id, '');
-        delete css.defined['$zid:' + id];
-        //remove component
-        if ($z._components[id] == components[i])
-          delete $z._components[id];
-      }
+      //static css clearing
+      if (typeof component.nodeType == 'number' && component.id)
+        $z.css.clear(component.id);
+      //dynamic css and register clearing
+      else
+        for (var id in $z._components) {
+          //remove component
+          if ($z._components[id] == component) {
+            //remove instance css (css requires are a manual disposal if desired)
+            $z.css.clear(id);
+            delete $z._components[id];
+            break;
+          }
+        }
     }
     
+    //then remove the html elements
     for (var i = els.length - 1; i >= 0; i--)
       if (els[i].parentNode)
         els[i].parentNode.removeChild(els[i]);

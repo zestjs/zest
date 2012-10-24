@@ -15,6 +15,9 @@ define(function() {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
+  esc.int = function(num) {
+    return parseInt(num);
+  }
   esc.html = function(html) {
     
   }
