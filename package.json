@@ -5,7 +5,11 @@
     "dependencies": {
       "selector": "guybedford/selector",
       "require-css": "guybedford/require-css",
-      "zoe": "zestjs/zoe"
+      "require-less": "guybedford/require-less",
+      "cs": "jrburke/require-cs",
+      "empty": "guybedford/empty-module",
+      "zoe": "zestjs/zoe",
+      "ajax": "guybedford/ajax"
     }
   }
 }
