@@ -9,7 +9,7 @@
       "cs": "jrburke/require-cs",
       "empty": "guybedford/empty-module",
       "zoe": "zestjs/zoe",
-      "ajax": "guybedford/ajax"
+      "rest": "guybedford/rest"
     }
   }
 }
