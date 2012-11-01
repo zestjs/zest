@@ -42,11 +42,17 @@ define(function() {
   }
   
   //quoted strings in javascript
-  esc.strvar = function(str) {
+  esc.strVar = function(str) {
     return str
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
       .replace(/<\//, '<\\/'); //since </script> can be read through a string value
+  }
+  
+  
+  esc.cssAttr = function(attr) {
+    return str
+      .replace(/;/g, '');
   }
   
   //json </script> attack

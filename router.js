@@ -9,6 +9,11 @@ define(['./zest-render'], function($z) {
     routes: {}
   };
   
+  /* loading pages not handled by router, but by a deferred render.
+   * this involves getting the client-side progressive rendering to work based on a render-waitdelay threshold.
+   *
+   */
+  
   /* client router */
   if (client) {
     var push_state = !!(window.history && history.pushState);
@@ -61,11 +66,11 @@ define(['./zest-render'], function($z) {
       }
     }
     router.go = function(url, complete) {
-      complete = complete || function(){}
       router.render(url, function(route) {
         if (route && route.route)
           router.push(route.options._url);
-        complete();
+        if (complete)
+          complete();
       });
     }
     router.push = function(url) {
