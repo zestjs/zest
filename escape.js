@@ -9,7 +9,8 @@ define(function() {
   //arguments after mode are passed as successive arguments to the escape function
   var esc = function(text, mode) {
     var args = Array.prototype.splice.call(arguments, 2, arguments.length - 2);
-    return esc[mode](args.unshift(text));
+    args.unshift(text);
+    return esc[mode](args);
   }
   //useful for css sizes etc. Suffix allows for dimensions eg px
   esc.num = function(text, nanValue) {
@@ -51,7 +52,7 @@ define(function() {
   
   
   esc.cssAttr = function(attr) {
-    return str
+    return (attr + '')
       .replace(/;/g, '');
   }
   
