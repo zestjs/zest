@@ -146,7 +146,7 @@ define(['zoe', './zest-render'], function(zoe, $z) {
     
     construct: function(options) {
       if (!options.$$)
-        return render(this.constructor, options, document.createDocumentFragment());
+        return $z.render(this.constructor, options, document.createDocumentFragment());
       
       this.id = options.id;
       this.type = options.type;
