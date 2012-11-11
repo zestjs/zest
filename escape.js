@@ -32,8 +32,8 @@ define(function() {
   }
   
   //html text only
-  esc.htmlText = function(test) {
-    return text
+  esc.htmlText = function(text) {
+    return (text + '')
       .replace(/&/g, '&amp;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#x27;')
@@ -44,7 +44,7 @@ define(function() {
   
   //quoted strings in javascript
   esc.strVar = function(str) {
-    return str
+    return (str + '')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
       .replace(/<\//, '<\\/'); //since </script> can be read through a string value
