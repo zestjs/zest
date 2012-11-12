@@ -661,12 +661,13 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
         // check if the region is flat in $$
         var regionIndex = $$.indexOf(regionNode);
         
-        //copy the options for the region rendering
-        if (typeof regionStructure == 'function' && !regionStructure.template)
+        if (typeof regionStructure == 'function' && !regionStructure.template) {
           regionStructure = regionStructure.call(component, $z.extend({}, options, { id: 'IGNORE', type: 'IGNORE' }));
+        }
         
         //possible recursive templating? probably not
-        $z.render.renderItem(regionStructure, options, function(_$$) {
+        //copy the options for the region rendering
+        $z.render.renderItem(regionStructure, $z.extend({}, options, { id: 'IGNORE', type: 'IGNORE' }), function(_$$) {
           var buffer = $z.render.Buffer();
           buffer.write(_$$);
           if (buffer.container)
