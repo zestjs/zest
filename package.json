@@ -9,7 +9,8 @@
       "cs": "jrburke/require-cs",
       "empty": "guybedford/empty-module",
       "zoe": "zestjs/zoe",
-      "rest": "guybedford/rest"
+      "rest": "guybedford/rest",
+      "require-inline": "guybedford/require-inline"
     }
   }
 }
