@@ -6,6 +6,7 @@
 define(['require', 'selector', './instance-css'], function(require, $, css) {
   
   var $z = function() { return $z.main.apply(this, arguments); }
+  $z.css = css;
   
   //make a global
   this.$z = $z;
@@ -52,7 +53,7 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
    * component.$z = $z.$z
    * 
    */
-  $z.main = $z.$z = function(componentSelector, context) {
+  $z.main = $z.$z = function(componentSelector, context, elementsOnly) {
   
     componentSelector = componentSelector || '*';
     context = context || this.$$ || document.body;
@@ -70,11 +71,12 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
     var matches = $z.$(firstSelector, context);
     
     var outMatches = [];
+    var com;
     //if we're at the last depth
     if (firstPart == componentSelector) {
       for (var i = 0; i < matches.length; i++) {
-        if (matches[i].$zid)
-          outMatches[i] = $z._components[matches[i].$zid];
+        if (com = $z._components[matches[i].id])
+          outMatches[i] = (!elementsOnly && com.controller) || com.$$;
         else
           outMatches[i] = matches[i];
       }
@@ -87,9 +89,8 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
     
     //run through matches, creating array of element arrays for matches
     var allMatches = [];
-    var com;
     for (var i = 0; i < matches.length; i++) {
-      if (matches[i].$zid && (com = $z._components[matches[i].$zid]))
+      if (com = $z._components[matches[i].id])
         allMatches = allMatches.concat(com.$$);
       else
         allMatches.push(matches[i]);
@@ -291,9 +292,10 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
       //dynamic components need a type
       options.type = options.type || structure.type; 
       //and an id (null = dont add id)
-      if (options.id === undefined) {
+      if (options.id === undefined)
         options.id = (structure.options && structure.options.id !== undefined) ? structure.options.id : ('z' + ($z._nextComponentId++ || options.global._nextComponentId++));
-      }
+      if ($z._components[options.id])
+        throw 'Id ' + options.id + ' already defined!';
       
       return this.renderComponent(structure, options, write, complete);
     }
@@ -443,7 +445,8 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
     var _options = component.pipe ? component.pipe(options) || {} : {};
     
     _options.global = options.global;
-    $$[0].$zid = options.id;
+    if ($$[0].id != options.id)
+      throw 'Component id hasnt rendered correctly';
     
     if (typeof component.attach === 'string') {
       var moduleId = $z.getModuleId(component);
@@ -457,11 +460,29 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
       });
     }
     else {
+      var com = {
+        $$: $$
+      };
+      
       if (typeof component.attach == 'function' && !component.attach.attach)
-        $z._components[options.id] = component.attach($$, _options);
-        
+        com.controller = component.attach($$, _options);
       else if (component.attach && component.attach.attach)
-        $z._components[options.id] = component.attach.attach($$, _options);
+        com.controller = component.attach.attach($$, _options);
+      
+      if (com.controller) {
+        var dispose = com.controller.dispose;
+        
+        if (!dispose || (dispose && !com.controller._ownDispose && dispose.length == 0 && !dispose.fns)) {
+          com.controller.dispose = function(system) {
+            if (!system)
+              return $z.dispose($$);
+            if (dispose)
+              dispose();
+          }
+        }
+      }
+        
+      $z._components[options.id] = com;
         
       complete();
     }
@@ -744,8 +765,8 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
       }
     }
     
-    if (el.getAttribute && typeof el.getAttribute('component') === 'string')
-      return $z._components[el.$zid];
+    if ($z._components[el.id])
+      return $z._components[el.id];
   
     if (!el.previousSibling && el.parentNode == document.body)
       return;
@@ -755,10 +776,12 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
     var com;
     while (prevNode = prevNode.previousSibling) {
       //if its a component, return if we fall under its cover
-      if (typeof prevNode.$zid == 'number' && (com = $z._components[prevNode.$zid]))
+      if ($z._components[prevNode.id]) {
+        var com = $z._components[prevNode.id];
         for (var i = 0; i < com.$$.length; i++)
           if (com.$$[i] == el)
-            return com;
+            return com.controller;
+      }
     }
     
     //if not, go up to the parent node
@@ -775,10 +798,6 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
    */
   
   $z.dispose = function(els) {
-    //support selectors
-    if (typeof els == 'string')
-      els = $z(els);
-    
     if (els.nodeType)
       els = els.childNodes;
     
@@ -798,7 +817,7 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
       else
         for (var id in $z._components) {
           //remove component
-          if ($z._components[id] == component) {
+          if ($z._components[id].controller == component) {
             //remove instance css (css requires are a manual disposal if desired)
             $z.css.clear(id);
             delete $z._components[id];

@@ -161,6 +161,7 @@ define(['zoe', './zest-render'], function(zoe, $z) {
       $: $z.$,
       $z: $z.$z,
       _unbind: true,
+      _ownDispose: true,
       dispose: function(system) {
         //cut out and call $z.dispose to do the work, it will call this back with the system flag
         //basically, $z.dispose(el) is the right method.
