@@ -253,7 +253,7 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
     if (complete === undefined)
       complete = function() {}
     
-    if (typeof structure == 'undefined') {
+    if (typeof structure == 'undefined' || structure == null) {
       complete();
       return;
     }
