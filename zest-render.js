@@ -775,6 +775,10 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
    */
   
   $z.dispose = function(els) {
+    //support selectors
+    if (typeof els == 'string')
+      els = $z(els);
+    
     if (els.nodeType)
       els = els.childNodes;
     
