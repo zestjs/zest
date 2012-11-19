@@ -60,7 +60,7 @@ if (false) define(null);
   var requireInlineUrl = require.toUrl('require-inline');
   
   // require zest and the component id to do the enhancements
-  require(['zest', controllerId, 'json2'], function($z, controller) {
+  require(['zest', controllerId, 'json/json'], function($z, controller) {
     if ($z._nextComponentId <= zid.substr(1))
       $z._nextComponentId = parseInt(zid.substr(1)) + 1;
 
