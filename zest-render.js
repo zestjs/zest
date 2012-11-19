@@ -3,23 +3,23 @@
  * zestjs.org  
  * 
  */
-define(['require', 'selector', './instance-css'], function(require, $, css) {
+define(['require', 'selector', 'module'], function(require, $, module) {
+  
+  var config = module.config();
+  
+  var typeAttr = (config && config.typeAttribute) || 'component';
   
   var $z = function() { return $z.main.apply(this, arguments); }
-  $z.css = css;
   
   //make a global
   this.$z = $z;
   
   //component store
-  $z._components = {};
+  $z._controllers = {};
+  $z._elements = {};
   
   //global render option
   $z._global = null;
-  
-  var client = typeof window != 'undefined';
-  
-  //main rendering code and helpers
   
   /*
    * Component selector
@@ -65,22 +65,22 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
     var firstPart = componentSelector.substr(0, componentSelector.indexOf(' ')) || componentSelector;
     
     var subparts = firstPart.split('#');
-    var firstSelector = (subparts[0] != '' && subparts[0] != '*' ? '[component=' + subparts[0] + ']' : '[component]') +
+    var firstSelector = (subparts[0] != '' && subparts[0] != '*' ? '[' + typeAttr + '=' + subparts[0] + ']' : '[' + typeAttr + ']') +
       (subparts[1] ? '#' + subparts[1] : '');
     
     var matches = $z.$(firstSelector, context);
     
     var outMatches = [];
-    var com;
+    var els;
     //if we're at the last depth
     if (firstPart == componentSelector) {
       for (var i = 0; i < matches.length; i++) {
-        if (com = $z._components[matches[i].id])
-          outMatches[i] = (!elementsOnly && com.controller) || com.$$;
+        if (els = $z._elements[matches[i].id])
+          outMatches[i] = (!elementsOnly && $z._controllers[matches[i].id]) || els;
         else
           outMatches[i] = matches[i];
       }
-          
+      
       if (matches.length == 1 && !asList)
         return outMatches[0];
       else
@@ -90,8 +90,8 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
     //run through matches, creating array of element arrays for matches
     var allMatches = [];
     for (var i = 0; i < matches.length; i++) {
-      if (com = $z._components[matches[i].id])
-        allMatches = allMatches.concat(com.$$);
+      if (els = $z._elements[matches[i].id])
+        allMatches = allMatches.concat(els);
       else
         allMatches.push(matches[i]);
     }
@@ -152,32 +152,15 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
    *
    * Usage:
    *
-   * $z.render(renderable, options, wrapperNode)
-   * or
-   * $z.render(renderable, wrapperNode)
+   * $z.render(renderable, options, wrapperNode, complete)
    *
-   *
-   * Client encapsulation of the client and server shared function - $z.renderItem
-   *
-   * Adds the 'write' function corresponding to the DOM, as well as supporting
-   * client requiring and returning instance information.
-   *
-   * Usage:
-   *
-   *  $z.render(structure, options, wrapperNode)
-   *
-   * Structure can be -
-   *  - Requires string
-   *  - Dynamic or static component
-   *  - Structure item
-   *  - Template function
-   *  - Array of structure
-   *  - Dynamic structure function
+   * If a string is given it is assumed a moduleId.
+   * This is the only time a string doesn't render.
    *
    * Options are optional
+   * Complete callback is optional
    *
    */
-  if (!client) $z.render = {}; else
   $z.render = function(structure, options, container, complete) {
     if (typeof container == 'function') {
       complete = container;
@@ -188,218 +171,193 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
     options.global = options.global || $z._global;
 
     var $$ = $z.render.Buffer();
-
-    var _complete = function() {
-      var _c = $z.render.Buffer(container);
-      _c.write($$);
-      complete();
-    }
     
-    $z.render.renderItem({
-      structure: structure,
-      options: options
-    }, $$.write, function() {
+    var _complete = function() {
       $z.render.Buffer(container.length ? container[0] : container).write($$);
       if (complete)
         complete();
-    });
+    }
+    
+    // the only time a string is a moduleId
+    if (typeof structure == 'string') {
+      require([structure], function(structure) {
+        $z.render.renderItem(structure, options, $$.write, _complete)
+      });
+    }
+    else
+      $z.render.renderItem(structure, options, $$.write, _complete);
   }
   
-  $z._components = $z._components || {};
-  if (client)
-    $z._nextComponentId = 1;
+  $z._nextComponentId = 1;
   
-  /*
-   * $z.render.renderItem
-   * Renders the given structure / structure item
-   *
-   * global options now supported and passed down. options.global.
-   *
-   * NB: all $z.render.* functions not to be used directly!
-   *
-   * Usage:
-   * $z.render(structure, options, write, complete);
-   *
-   * Write is called as the render completes each sequential structure part.
-   * Complete is called at the end.
-   *
-   * Render function written asynchronously in order to be share the code for both asynchronous rendering
-   * on the server and synchronous rendering on the client.
-   *
-   * On the client, the write function is passed a DOM element buffer in the form of a document fragment
-   * On the server, the write function is passed a string of html
-   *
-   * On both the client and server, this function is wrapped by a '$z.render'
-   * function which should be used directly instead of this one.
-   *
-   * INPUTS::
-   * 
-   * Direct Forms
-   * -HTML string
-   * -Component constructor / Component object (function / object with a 'template property)
-   * -structure array (array)
-   * -structure item = component object
-   *
-   * Function Forms
-   * -template
-   * -structure function
-   * 
-   */
   $z.render.renderItem = function(structure, options, write, complete) {
     if (complete === undefined) {
       complete = write;
       write = options;
       options = null;
     }
-    if (complete === undefined)
-      complete = function() {}
+    complete = complete || function() {}
     
-    if (typeof structure == 'undefined' || structure == null) {
-      complete();
-      return;
-    }
+    if (typeof structure == 'undefined' || structure == null)
+      return complete();
     
     options = options || {};
+    options.global = options.global || {};
     
-    //template or structure function
-    if (typeof structure == 'function' && !structure.template) {
-      options.global = options.global || {};
-      if (structure.length == 2) {
-        var self = this;
-        structure(options, function(output) {
-          self.renderItem(output, { global: options.global}, write, complete);
+    var self = this;
+    
+    // string templates
+    if (typeof structure == 'string')
+      self.renderTemplate(structure, null, options, write, complete);
+    
+    // dynamic template or structure function
+    else if (typeof structure == 'function' && !structure.render) {
+      // run structure function
+      if (structure.length == 2)
+        structure(options, function(structure) {
+          self.renderItem(structure, { global: options.global }, write, complete);
         });
-        return;
+      else {
+        structure = structure(options);
+        
+        // check if it is a template or not
+        if (typeof structure == 'string')
+          self.renderTemplate(structure, null, options, write, complete);
+        
+        // otherwise just render
+        self.renderItem(structure, { global: options.global }, write, complete);
       }
-      else
-        return this.renderItem(structure(options), { global: options.global}, write, complete);
-    }
-    
-    //Direct forms:
-    //html string
-    if (typeof structure == 'string') {
-      write(structure);
-      complete();
     }
   
-    //structure array
+    // structure array
     else if (structure instanceof Array)
-      return this.renderArray(structure, { global: options.global || {} }, write, complete);
-  
-    //component (components purely indicated by a 'template' property)
-    else if (structure.template) {
-      //"component" attribute on dynamics
-      //dynamic components need a type
-      options.type = options.type || structure.type; 
-      //and an id (null = dont add id)
-      if (options.id === undefined)
-        options.id = (structure.options && structure.options.id !== undefined) ? structure.options.id : ('z' + ($z._nextComponentId++ || options.global._nextComponentId++));
-      if ($z._components[options.id])
-        throw 'Id ' + options.id + ' already defined!';
-      
-      return this.renderComponent(structure, options, write, complete);
-    }
-  
-    //structure item
-    else if (structure.structure) {
-      var _options = $z.extend({}, structure.options || {});
-      _options.global = options.global || _options.global || {};
-      var self = this;
-      if (typeof structure.structure == 'string') {
-        require([structure.structure], function(_structure) {
-          self.renderItem(_structure, _options, write, complete);
-        });
-        return null;
-      }
-      else
-        return this.renderItem(structure.structure, _options, write, complete);
-    }
+      self.renderArray(structure, { global: options.global }, write, complete);
+    
+    // render component
+    else if (structure.render)
+      self.renderComponent(structure, options, write, complete);
+    
     else {
       $z.dir(structure);
       throw 'Unrecognised structure item for render.';
     }
   }
   
-  /*
-   * Array rendering::
-   *
-   * $z.render.renderArray(structureArray, write, complete);
-   *
-   * each item is individually rendered, then the DOM elements are concatenated together.
-   *
-   */
-  if (client)
   $z.render.renderArray = function(structure, options, write, complete) {
     var i = 0;
+    var self = this;
     var next = function() {
       if (i == structure.length) {
         complete();
         return;
       }
-      $z.render.renderItem(structure[i++], i == structure.length - 1 ? options : $z.extend({}, options), write, function() {
+      self.renderItem(structure[i++], { global: options.global }, write, function() {
         next();
       });
     }
     next();
   }
   
-  
-  /*
-   * Component Rendering::
-   *
-   * Component rendering relies on the following properties:
-   * {
-   *   //default options, provided to functions below
-   *   options: {
-   *   },
-   *
-   *   //template function OR HTML string
-   *   //child replacements denoted by "{`regionName`}"
-   *   template: function(options) {
-   *     return '<div>{`content`}</div>';
-   *   },
-   *
-   *   id: '', //unique id for this component in this page. uniqueness checks not included.
-   *   type: '', //type name for component
-   *
-   *   //any regions defined by the template are then checked for
-   *   //renderable structures themselves
-   *   content: {any renderable structure}
-   *
-   *   css: CSS string / function(o) {
-   *     return '#' + o.id + ' { color: red; }';
-   *   },
-   *
-   *   load: function(o, complete) {
-   *     //perform any preloading
-   *   },
-   *
-   *   pipe: function(o) {
-   *     //prepare the options for the client attachment
-   *     //returns the options to be sent
-   *   },
-   *
-   *   //AMD-loaded module or function to use for attachment
-   *   //if a module, that module should define an attach function property itself
-   *   //the attach function takes parameters: $$, options
-   *   //where $$ is the array of DOM elements, options is the piped options
-   *   attach: {} / function
-   * }
-   *
-   * Component render process:
-   * - Compile in the default options
-   * - Run the load function, and await the callback
-   * - Parse the template into HTML and add the labelling
-   * - Find the regions of the form '{`regionName`}' in the template
-   * - Render the regions into their template locations
-   * - Add CSS if provided
-   * - Execute pipe function to determine attachment options
-   * - Provide attachment if necessary
-   *
-   */
+  // passing component allows the region to be checked from the component first
+  $z.render.renderTemplate = function(template, component, options, write, complete) {
+    var $$;
+    
+    // Find all instances of '{`regionName`}'
+    var regions = template.match(/\{\`\w+\`\}/g);
+    
+    // map the region replacements into placeholder divs to pick up
+    if (regions)
+      for (var i = 0; i < regions.length; i++) {
+        var region = regions[i];
+        var regionName = region.substr(2, region.length - 4);
+        regions[i] = regionName;
+        
+        //check if there is a tag before the current one, and copy its type if there is
+        var formerTag = template.match(new RegExp('(<\/(\\w*)[^>]*>|<(\\w*)[^>]*\/>)\\s*' + region));
+        formerTag = (formerTag && (formerTag[2] || formerTag[3])) || 'span';
+        
+        var parentTag = template.match(new RegExp('<(\\w*)[^>]*>\\s*' + region));
+        parentTag = (parentTag && parentTag[1]) || 'div';
+        
+        var placeholderTag = formerTag || 'span';
+        
+        if (parentTag == 'tbody')
+          placeholderTag = 'tr';
+          
+        template = template.replace(region, '<' + placeholderTag + ' style="display: none;" region-placeholder=' + regionName + '></' + placeholderTag + '>');
+        delete region;
+      }
+    
+    // render into temporary buffer
+    var buffer = $z.render.Buffer();
+    buffer.write(template);
+    
+    var regionNodes = {};
+    
+    // pickup region placeholders
+    if (regions)
+      for (var i = 0; i < regions.length; i++) {
+        var region = regions[i];
+        var regionNode;
+        for (var j = 0; j < buffer.container.childNodes.length; j++) {
+          var node = buffer.container.childNodes[j];
+          if (node.getAttribute && node.getAttribute('region-placeholder') == region) {
+            regionNode = node;
+            break;
+          }
+          if (node.nodeType == 1) {
+            var matches = $('[region-placeholder=' + region + ']', node);
+            if (matches.length > 0) {
+              regionNode = matches[0];
+              break;
+            }
+          }
+        }
+        
+        regionNodes[region] = regionNode;
+      }
+    
+    // then render into the body
+    $$ = buffer.toArray();
+    write(buffer);
+    
+    // do region rendering
+    if (!regions)
+      return complete($$);
+
+    var completedRegions = 0;
+    for (var i = 0; i < regions.length; i++)
+      (function(region, regionNode) {
+        var regionStructure = (component && component[region]) || options[region];
+        
+        // check if the region is flat in $$
+        var regionIndex = $$.indexOf(regionNode);
+        
+        $z.render.renderItem(regionStructure, options, function(_$$) {
+          var buffer = $z.render.Buffer();
+          buffer.write(_$$);
+          if (buffer.container)
+            while (buffer.container.childNodes.length > 0) {
+              if (regionIndex != -1)
+                $$.splice(regionIndex, 0, buffer.container.childNodes[0]);
+              regionNode.parentNode.insertBefore(buffer.container.childNodes[0], regionNode);          
+            }
+        }, function() {
+          regionNode.parentNode.removeChild(regionNode);
+          if (regionIndex != -1)
+            $$.splice(regionIndex, 1);
+          
+          // detect completion
+          completedRegions++;
+          if (completedRegions == regions.length)
+            complete($$);
+        });
+        
+      })(regions[i], regionNodes[regions[i]]);
+  }
   
   $z.render.renderComponent = function(component, options, write, complete) {
-    //add default options to options
+    // populate default options
     if (component.options)
       for (var option in component.options) {
         if (options[option] === undefined)
@@ -409,23 +367,105 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
     var self = this;
     
     var render = function() {
-      if (options.type === undefined)
-        options.type = '';
       
-      self.renderComponentTemplate(component, options, write, function($$) {
-        var moduleId = $z.getModuleId(component);
+      options.type = options.type || component.type;
+      
+      // attach vars:
+      // piped options - calculated after labelling
+      var _options;
+      
+      var _id = options.id;
+      var _type = options.type;
+      
+      delete options.id;
+      delete options.type;
+      
+      var renderAttach = function($$) {
         
-        // Apply instance css
-        var cssId;
-        if (component.css && client && options.id)
-          css.set(options.id, typeof component.css == 'function' ? component.css(options) : component.css, moduleId ? require.toUrl(moduleId) : true);
+        // label component if labels provided
+        if (_id) {
+          if ($z._elements[_id])
+            throw 'Id ' + _id + ' already defined!';
+          $$[0].id = _id;
+        }
+        if (_type) {
+          if (!$$[0].getAttribute(typeAttr))
+            $$[0].setAttribute(typeAttr, _type);
+        }
         
-        // on client, component render returns element list
-        if (component.attach)
-          $z.render.renderAttach(component, options, $$ ? $$ : write, complete);
-        else
+        if (!component.attach)
+          return complete();
+        
+        // attachment
+        
+        // enforce labelling
+        if (_id === undefined) {
+          _id = 'z' + $z._nextComponentId++;
+          if ($z._elements[_id])
+            throw 'Id ' + _id + ' already has an attachment defined!';
+          $$[0].id = _id;
+        }
+        if (_type === undefined) {
+          if (!$$[0].getAttribute(typeAttr))
+            $$[0].setAttribute(typeAttr, (_type = ''));
+        }
+          
+        $z._elements[_id] = $$;
+        
+        var _options = component.pipe ? component.pipe(options) || {} : {};
+        _options.global = options.global;
+        
+        var registerController = function(controller) {
+          if (!controller)
+            return complete();
+          
+          var dispose = controller.dispose;
+          
+          if (!dispose || (dispose && !controller._ownDispose && dispose.length == 0 && !dispose.fns)) {
+            controller.dispose = function(system) {
+              if (!system)
+                return $z.dispose($$);
+              if (dispose)
+                dispose();
+            }
+          }
+            
+          $z._controllers[_id] = controller;
+            
           complete();
-      });
+        }
+        
+        if (typeof component.attach === 'string') {
+          var attachId = component.attach;
+          
+          // relative module ids
+          var moduleId = $z.getModuleId(component);
+          if (moduleId) {
+            // create the module map for the component
+            var parentMap = requireContext.makeModuleMap(moduleId, null, false, false);
+            // normalize the attachment id
+            attachId = requireContext.makeModuleMap(attachId, parentMap, false, true).id;
+          }
+          
+          require([attachId], function(attachment) {
+            registerController(attachment($$, _options));
+          });
+        }
+        else
+          registerController(component.attach($$, _options));
+      }
+      
+      // check if the render is a functional
+      if (typeof component.render == 'function' && !component.render.render && component.render.length == 1) {
+        var structure = component.render(options);
+        // check if we have a template
+        if (typeof structure == 'string')
+          self.renderTemplate(structure, component, options, write, renderAttach);
+        else
+          self.renderItem(structure, { global: options.global }, write, renderAttach);
+      }
+      else
+        self.renderItem(component.render, options, write, renderAttach);
     }
     
     if (component.load) {
@@ -440,94 +480,6 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
       render();
   }
   
-  $z.render.renderAttach = function(component, options, $$, complete) {
-    // run attachment
-    var _options = component.pipe ? component.pipe(options) || {} : {};
-    
-    _options.global = options.global;
-    if ($$[0].id != options.id)
-      throw 'Component id hasnt rendered correctly';
-    
-    if (typeof component.attach === 'string') {
-      var moduleId = $z.getModuleId(component);
-      
-      // a relative path method for attach moduleIds
-      if (component.attach.substr(0, 1) == '.')
-        component.attach = moduleId + '../' + component.attach;
-      
-      require([component.attach], function(attachComponent) {
-        $z.render.renderAttach(component, options, write, complete);
-      });
-    }
-    else {
-      var com = {
-        $$: $$
-      };
-      
-      if (typeof component.attach == 'function' && !component.attach.attach)
-        com.controller = component.attach($$, _options);
-      else if (component.attach && component.attach.attach)
-        com.controller = component.attach.attach($$, _options);
-      
-      if (com.controller) {
-        var dispose = com.controller.dispose;
-        
-        if (!dispose || (dispose && !com.controller._ownDispose && dispose.length == 0 && !dispose.fns)) {
-          com.controller.dispose = function(system) {
-            if (!system)
-              return $z.dispose($$);
-            if (dispose)
-              dispose();
-          }
-        }
-      }
-        
-      $z._components[options.id] = com;
-        
-      complete();
-    }
-  }
-  
-  
-  /*
-   * $z.render.labelComponent
-   *
-   * Given the component html, label the master element
-   * The master element is taken to be the first DOM element in the component template
-   *
-   * The labelling takes the form:
-   *
-   * "<div>"
-   *  ->
-   * "<div component='component-type-name' id='component-id'>"
-   *
-   * If no id is provided, the id attribute is not set.
-   * If no type is provided, then the 'component' attribute is set but empty.
-   *
-   */
-  $z.render.labelComponent = function(html, options) {
-    var attributes = '';
-    if (options.type != null)
-      attributes += ' component' + (options.type !== '' ? '="' + options.type + '"' : '');
-    
-    if (options.id != null)
-      attributes += ' id="' + options.id + '"';
-      
-    //clear space at the beginning of the html to avoid unnecessary text nodes
-    html = html.replace(/^\s*/, '');
-    
-    var firstTag = html.match(/<\w+/);
-    if (firstTag)
-      return html.substr(0, firstTag[0].length) + attributes + html.substr(firstTag[0].length);
-    else if (attributes != '') {
-      $z.log(html);
-      throw '$z.labelComponent: Unable to match first tag of template to add component id and type. Ensure the template defines at least one master HTML element itself.';
-    }
-    else
-      return html;
-  }
-  
-  
   /*
    * $z.render.Buffer
    * Allows for generalising scripts to work both client and server side
@@ -541,16 +493,15 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
    *
    */
   
-   //create a buffer for a container (hidden or in the dom)
-   //can write another buffer, a dom element, or an element array
+  //create a buffer for a container (hidden or in the dom)
+  //can write another buffer, a dom element, or an element array
+  
+  var getContainerTag = function(tagName) {
+   if (tagName == 'tr')
+     return 'tbody'
+   return 'div';
+  }
    
-   var getContainerTag = function(tagName) {
-    if (tagName == 'tr')
-      return 'tbody'
-    return 'div';
-   }
-   
-  if (client)
   $z.render.Buffer = function(container) {
     if (container && container.constructor == $z.fn)
       throw 'Its a $z fn!';
@@ -599,122 +550,6 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
     }
     return buffer;
   }
-  
-  $z.render.renderComponentTemplate = function(component, options, write, complete) {
-    // Render the template
-    var html = typeof component.template == 'function' ? component.template(options) : component.template;
-    
-    // Create element array for complete on client
-    var $$;
-    
-    //if its a page template, don't bother with labelling
-    //if (!$z.inherits(component, $z.Page))
-    html = $z.render.labelComponent(html, options);
-    
-    // Find all instances of '{`regionName`}'
-    var regions = html.match(/\{\`\w+\`\}/g);
-    
-    // map the region replacements into placeholder divs to pick up
-    if (regions)
-      for (var i = 0; i < regions.length; i++) {
-        var region = regions[i];
-        var regionName = region.substr(2, region.length - 4);
-        regions[i] = regionName;
-        
-        //check if there is a tag before the current one, and copy its type if there is
-        var formerTag = html.match(new RegExp('(<\/(\\w*)[^>]*>|<(\\w*)[^>]*\/>)\\s*' + region));
-        formerTag = (formerTag && (formerTag[2] || formerTag[3])) || 'span';
-        
-        var parentTag = html.match(new RegExp('<(\\w*)[^>]*>\\s*' + region));
-        parentTag = (parentTag && parentTag[1]) || 'div';
-        
-        var placeholderTag = formerTag || 'span';
-        
-        if (parentTag == 'tbody')
-          placeholderTag = 'tr';
-          
-        html = html.replace(region, '<' + placeholderTag + ' style="display: none;" region-placeholder=' + regionName + '></' + placeholderTag + '>');
-        delete region;
-      }
-    
-    // render into temporary buffer
-    var buffer = $z.render.Buffer();
-    buffer.write(html);
-    
-    var regionNodes = {};
-    
-    // pickup region placeholders
-    if (regions)
-      for (var i = 0; i < regions.length; i++) {
-        var region = regions[i];
-        var regionNode;
-        for (var j = 0; j < buffer.container.childNodes.length; j++) {
-          var node = buffer.container.childNodes[j];
-          if (node.getAttribute && node.getAttribute('region-placeholder') == region) {
-            regionNode = node;
-            break;
-          }
-          if (node.nodeType == 1) {
-            var matches = $('[region-placeholder=' + region + ']', node);
-            if (matches.length > 0) {
-              regionNode = matches[0];
-              break;
-            }
-          }
-        }
-        
-        regionNodes[region] = regionNode;
-      }
-    
-    // then render into the body
-    $$ = buffer.toArray();
-    write(buffer);
-    
-    // do region rendering
-    if (!regions)
-      return complete($$);
-
-    var completedRegions = 0;
-    for (var i = 0; i < regions.length; i++)
-      (function(region, regionNode) {
-        var regionStructure = component[region] || options[region];
-        
-        // check if the region is flat in $$
-        var regionIndex = $$.indexOf(regionNode);
-        
-        if (typeof regionStructure == 'function' && !regionStructure.template) {
-          regionStructure = regionStructure.call(component, $z.extend({}, options, { id: 'IGNORE', type: 'IGNORE' }));
-        }
-        
-        //possible recursive templating? probably not
-        //copy the options for the region rendering
-        $z.render.renderItem(regionStructure, $z.extend({}, options, { id: 'IGNORE', type: 'IGNORE' }), function(_$$) {
-          var buffer = $z.render.Buffer();
-          buffer.write(_$$);
-          if (buffer.container)
-            while (buffer.container.childNodes.length > 0) {
-              if (regionIndex != -1)
-                $$.splice(regionIndex, 0, buffer.container.childNodes[0]);
-              regionNode.parentNode.insertBefore(buffer.container.childNodes[0], regionNode);          
-            }
-        }, function() {
-          regionNode.parentNode.removeChild(regionNode);
-          if (regionIndex != -1)
-            $$.splice(regionIndex, 1);
-          
-          // detect completion
-          completedRegions++;
-          if (completedRegions == regions.length)
-            complete($$);
-        });
-        
-      })(regions[i], regionNodes[regions[i]]);
-    
-    // immediately write into outer buffer. dom references are maintained as region renders.
-    //write($$);
-    
-    //complete();
-  }
 
   /*
    * Helper functions
@@ -724,18 +559,18 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
   if (!requirejs.s)
     throw 'Unable to read RequireJS contexts!';
   
-  $z._requireContext = null;
+  var requireContext = null;
   var modules;
   findContext: for (var c in requirejs.s.contexts) {
     modules = requirejs.s.contexts[c].defined;
     for (var curId in modules)
       if (modules[curId] == $) {
-        $z._requireContext = c;
+        requireContext = c;
         break findContext;
       }
   }
   
-  if (!$z._requireContext)
+  if (!requireContext)
     throw 'Unable to detect RequireJS context.';
   
   $z.getModuleId = function(module, definitionMatching) {
@@ -765,8 +600,8 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
       }
     }
     
-    if ($z._components[el.id])
-      return $z._components[el.id];
+    if ($z._controllers[el.id])
+      return $z._controllers[el.id];
   
     if (!el.previousSibling && el.parentNode == document.body)
       return;
@@ -776,11 +611,11 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
     var com;
     while (prevNode = prevNode.previousSibling) {
       //if its a component, return if we fall under its cover
-      if ($z._components[prevNode.id]) {
-        var com = $z._components[prevNode.id];
-        for (var i = 0; i < com.$$.length; i++)
-          if (com.$$[i] == el)
-            return com.controller;
+      if ($z._controllers[prevNode.id]) {
+        var com = $z._elements[prevNode.id];
+        for (var i = 0; i < com.length; i++)
+          if (com[i] == el)
+            return $z._controllers[prevNode.id];
       }
     }
     
@@ -810,20 +645,21 @@ define(['require', 'selector', './instance-css'], function(require, $, css) {
         component.dispose(true);
         component._disposed = true;
       }
-      //static css clearing
-      if (typeof component.nodeType == 'number' && component.id)
-        $z.css.clear(component.id);
       //dynamic css and register clearing
-      else
-        for (var id in $z._components) {
-          //remove component
-          if ($z._components[id].controller == component) {
-            //remove instance css (css requires are a manual disposal if desired)
-            $z.css.clear(id);
-            delete $z._components[id];
-            break;
-          }
+      for (var id in $z._controllers) {
+        //remove component
+        if ($z._controllers[id] == component) {
+          delete $z._controllers[id];
+          delete $z._elements[id];
+          break;
         }
+      }
+      for (var id in $z._elements) {
+        if ($z._elements[id] == component) {
+          delete $z._elements[id];
+          break;
+        }
+      }
     }
     
     //then remove the html elements

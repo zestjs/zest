@@ -1,7 +1,4 @@
-define(['zoe', './zest-render'], function(zoe, $z) {
-  
-  // it is the use of component that adds zoe
-  zoe.extend($z, zoe);
+define(['zoe', 'is!browser?./zest-render'], function(zoe, $z) {
   
   /*
    * Component
@@ -68,7 +65,7 @@ define(['zoe', './zest-render'], function(zoe, $z) {
    */
   
   var dynamic = false;
-  $z.fn.STOP_FIRST_DEFINED = function(self, args, fns) {
+  zoe.fn.STOP_FIRST_DEFINED = function(self, args, fns) {
     var output = fns[0].apply(self, args);
     if (output !== 'undefined')
       return;
@@ -77,12 +74,12 @@ define(['zoe', './zest-render'], function(zoe, $z) {
   }
   var Component = {
     
-    _implement: [$z.Constructor],
+    _implement: [zoe.Constructor],
     
     _extend: {
       type: 'REPLACE',
       pipe: 'CHAIN',
-      load: $z.extend.makeChain($z.fn.ASYNC),
+      load: zoe.extend.makeChain(zoe.fn.ASYNC),
       template: 'REPLACE',
       options: 'APPEND',
       css: function STR_FUNC_APPEND(a, b) {
@@ -105,7 +102,7 @@ define(['zoe', './zest-render'], function(zoe, $z) {
           
         if (!a.run) {
           var _a = a;
-          a = $z.fn($z.fn.executeReduce('', function(a, b) {
+          a = zoe.fn(zoe.fn.executeReduce('', function(a, b) {
             return a + b;
           }));
           a.on(_a);
@@ -115,7 +112,7 @@ define(['zoe', './zest-render'], function(zoe, $z) {
       },
       attachExclusions: 'ARR_APPEND',
       attachInclusions: 'ARR_APPEND',
-      'prototype.dispose': $z.extend.makeChain($z.fn.STOP_FIRST_DEFINED)
+      'prototype.dispose': zoe.extend.makeChain(zoe.fn.STOP_FIRST_DEFINED)
     },
     
     attach: function($$, options) {
@@ -153,13 +150,11 @@ define(['zoe', './zest-render'], function(zoe, $z) {
       this.$$ = options.$$;
       delete options.$$;
       
-      $z._components[this.$$[0].$zid] = this;
-      
       this.o = options;
     },
     prototype: {
-      $: $z.$,
-      $z: $z.$z,
+      $: $z && $z.$,
+      $z: $z && $z.$z,
       _unbind: true,
       _ownDispose: true,
       dispose: function(system) {

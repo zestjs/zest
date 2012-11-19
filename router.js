@@ -1,4 +1,4 @@
-define(['./zest-render'], function($z) {
+define(['zoe', './zest-render'], function(zoe, $z) {
   var qs;
   if (!client && requirejs.nodeRequire)
     qs = requirejs.nodeRequire('querystring');
@@ -82,7 +82,7 @@ define(['./zest-render'], function($z) {
   }
   
   router.addRoutes = function(routes) {
-    $z.extend(router.routes, routes, 'REPLACE');
+    zoe.extend(router.routes, routes, 'REPLACE');
   }
   
   

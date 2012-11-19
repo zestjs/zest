@@ -1,6 +1,6 @@
 /*
  * Main Zest bundle
- * Includes the render, router, escape and component parts.
+ * Includes the render, escape and component parts.
  *
  * For a minimal bundle, can just use the zest-render or make a custom
  * bundle including the escape or router optionally.
@@ -10,10 +10,11 @@
  * 
  */
 
-define(['./zest-render', './router', './escape', './component'], function($z, router, escape, Component) {
+define(['zoe', 'is!browser?./zest-render', './escape', './component'], function(zoe, $z, escape, Component) {
+  var $z = $z || {};
   //component adds zoe onto $z
   $z.Component = Component;
-  $z.router = router;
   $z.esc = escape;
+  zoe.extend($z, zoe);
   return $z;
 });

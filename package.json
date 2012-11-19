@@ -10,6 +10,7 @@
       "empty": "guybedford/empty-module",
       "zoe": "zestjs/zoe",
       "rest": "guybedford/rest",
+      "json": "guybedford/json",
       "require-inline": "guybedford/require-inline"
     }
   }
