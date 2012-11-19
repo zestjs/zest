@@ -421,7 +421,7 @@ define(['require', 'selector', 'module'], function(require, $, module) {
           
           var dispose = controller.dispose;
           
-          if (!dispose || (dispose && !controller._ownDispose && dispose.length == 0 && !dispose.fns)) {
+          if (!dispose || (dispose && !controller.dispose.length && !dispose.fns)) {
             controller.dispose = function(system) {
               if (!system)
                 return $z.dispose($$);
@@ -448,11 +448,11 @@ define(['require', 'selector', 'module'], function(require, $, module) {
           }
           
           require([attachId], function(attachment) {
-            registerController(attachment($$, _options));
+            registerController(attachment(_options, $$));
           });
         }
         else
-          registerController(component.attach($$, _options));
+          registerController(component.attach(_options, $$));
       }
       
       // check if the render is a functional

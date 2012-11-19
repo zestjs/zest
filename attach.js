@@ -69,9 +69,9 @@ if (false) define(null);
     var o = JSON.parse(options);
     
     if (controller.attach)
-      $z._controllers[zid] = controller.attach.call(controller, els, o);
+      $z._controllers[zid] = controller.attach.call(controller, o, els);
     else
-      $z._controllers[zid] = controller.call(controller, els, o);
+      $z._controllers[zid] = controller.call(controller, o, els);
   });
   
   // remove the attach script itself

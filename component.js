@@ -2,37 +2,13 @@ define(['zoe', 'is!browser?./zest-render'], function(zoe, $z) {
   
   /*
    * Component
+   * 
    * Creates a component with rendering or as attach-only
    *
    * The component is entirely rendered by $z.render.
    *
-   * Attachment::
-   *
    * Attachment is triggered when a "$$" element array options parameter is provided to the constructor.
    * This is the consecutive DOM elements currently definining the rendered widget to attach.
-   *
-   * Attachment::
-   *
-   * Components attach based on the options.attach specification.
-   *
-   * Example:
-   *
-   *  options.attach = {
-   *    Component: '#[component]$', //dollar sign indicates only finding components directly inside this region
-   *    $element: '#an-element',
-   *    region: '.a-region'
-   *  }
-   *
-   * If there is more than one match, an error is thrown.
-   *
-   * The DOM element being attached is then checked to see if it is a component or dynamic region
-   * (featuring a 'component' or 'region' attribute)
-   * If it is a component, it is attached from its $z property
-   * If it is a region, it is dynamically built from the region wrapper.
-   *
-   * The notation of $element, region (small letter) and Component (capital) is a highly recommended convention.
-   * There is no consequence for failing to follow this though.
-   *
    *
    * Disposal::
    *
@@ -47,7 +23,6 @@ define(['zoe', 'is!browser?./zest-render'], function(zoe, $z) {
    *
    * Suggested syntax (with jQuery as an example):
    *
-   * functionInstances: ['click'], //ensures that the click event is bound to this and unique to this
    * construct: function() {
    *   this.$el.click(this.click);
    *   this.dispose.on(function() {
@@ -56,15 +31,13 @@ define(['zoe', 'is!browser?./zest-render'], function(zoe, $z) {
    * }
    * 
    * This is very important for removing memory leaks.
-   * 
    *
-   * NB Never use a pre-constructor override with the Create functionality. This could
-   *    interfere with having all creation logic handled by the template and structure
-   *    methods.
+   * The default '_unbind' property on the constructor automatically unbinds jquery events
+   * when jQuery is bound to the contextual selector
    *
    */
   
-  var dynamic = false;
+  // only allow the first function to stop execution (used by dispose)
   zoe.fn.STOP_FIRST_DEFINED = function(self, args, fns) {
     var output = fns[0].apply(self, args);
     if (output !== 'undefined')
@@ -73,90 +46,31 @@ define(['zoe', 'is!browser?./zest-render'], function(zoe, $z) {
       fns[i].apply(self, args);
   }
   var Component = {
-    
     _implement: [zoe.Constructor],
     
     _extend: {
+      options: 'APPEND',
       type: 'REPLACE',
       pipe: 'CHAIN',
-      load: zoe.extend.makeChain(zoe.fn.ASYNC),
-      template: 'REPLACE',
-      options: 'APPEND',
-      css: function STR_FUNC_APPEND(a, b) {
-        if (a === undefined)
-          return b;
-        
-        var funcify = function(str) {
-          return function() {
-            return str;
-          }
-        }
-        if (typeof a != 'function' && typeof b != 'function')
-          return a + b;
-        
-        
-        if (typeof a == 'string')
-          a = funcify(a);
-        if (typeof b == 'string')
-          b = funcify(b);
-          
-        if (!a.run) {
-          var _a = a;
-          a = zoe.fn(zoe.fn.executeReduce('', function(a, b) {
-            return a + b;
-          }));
-          a.on(_a);
-        }
-        
-        a.on(b);
-      },
-      attachExclusions: 'ARR_APPEND',
-      attachInclusions: 'ARR_APPEND',
+      load: zoe.extend.makeChain('ASYNC'),
       'prototype.dispose': zoe.extend.makeChain(zoe.fn.STOP_FIRST_DEFINED)
     },
     
-    attach: function($$, options) {
-      options.$$ = $$;
-      return new this(options);
+    attach: function(o, els) {
+      return new this(o, els);
     },
     
-    _make: function() {
-      dynamic = false;
-    },
-    _integrate: function(def) {
-      if (dynamic)
-        return;
-  
-      if (def.construct || def.dynamic === true)
-        dynamic = true;
-        
-      if (def.prototype)
-        for (p in def.prototype) {
-          dynamic = true;
-          return;
-        }
-    },
-    _built: function() {
-      if (!dynamic)
-        delete this.attach;
+    construct: function(o, els) {
+      if (!els)
+        return $z.render(this.constructor, o, document.createDocumentFragment());
+      this.o = o;
+      this.$$ = els;
     },
     
-    construct: function(options) {
-      if (!options.$$)
-        return $z.render(this.constructor, options, document.createDocumentFragment());
-      
-      this.id = options.id;
-      this.type = options.type;
-      this.$$ = options.$$;
-      delete options.$$;
-      
-      this.o = options;
-    },
+    _unbind: true,
     prototype: {
       $: $z && $z.$,
       $z: $z && $z.$z,
-      _unbind: true,
-      _ownDispose: true,
       dispose: function(system) {
         //cut out and call $z.dispose to do the work, it will call this back with the system flag
         //basically, $z.dispose(el) is the right method.
@@ -165,21 +79,14 @@ define(['zoe', 'is!browser?./zest-render'], function(zoe, $z) {
         if (!system) {
           $z.dispose(this.$$);
           return true;
-        }
-        
+        }        
         //automatically unbind jquery events on the elements
-        if (this._unbind && $.fn && $.fn.jquery)
-          this.$('*').unbind();
-          
+        if (this.constructor._unbind && $z.$.fn && $z.$.fn.jquery)
+          this.$('*').unbind(); 
         delete this.$$;
       }
-    }
+    } 
   };
-
-  if (typeof window === 'undefined')
-    Component.construct = function() {
-      throw 'Components are not designed to be constructed on the server! Use $z.render instead.';
-    }
   
   return Component;
 });
