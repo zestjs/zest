@@ -5,9 +5,9 @@
  */
 define(['require', 'selector', 'module'], function(require, $, module) {
   
-  var config = module.config();
+  var config = typeof module != 'undefined' && module.config();
   
-  var typeAttr = (config && config.typeAttribute) || 'component';
+  var typeAttr = (typeof config != 'undefined' && config.typeAttribute) || 'component';
   
   var $z = function() { return $z.main.apply(this, arguments); }
   
@@ -556,34 +556,34 @@ define(['require', 'selector', 'module'], function(require, $, module) {
    * 
    */
   //first get the current context by finding selector
-  if (!requirejs.s)
-    throw 'Unable to read RequireJS contexts!';
+  if (typeof requirejs != 'undefined') {
   
-  var requireContext = null;
-  var modules;
-  findContext: for (var c in requirejs.s.contexts) {
-    modules = requirejs.s.contexts[c].defined;
-    for (var curId in modules)
-      if (modules[curId] == $) {
-        requireContext = c;
-        break findContext;
-      }
-  }
-  
-  if (!requireContext)
-    throw 'Unable to detect RequireJS context.';
-  
-  $z.getModuleId = function(module, definitionMatching) {
-    var moduleId;
-    if (module == null)
-      return moduleId;
-    for (var curId in modules) {
-      if (modules[curId] == module)
-        moduleId = curId;
-      else if (definitionMatching !== false && modules[curId] && module._definition == modules[curId])
-        moduleId = curId;
+    var requireContext = null;
+    var modules;
+    findContext: for (var c in requirejs.s.contexts) {
+      modules = requirejs.s.contexts[c].defined;
+      for (var curId in modules)
+        if (modules[curId] == $) {
+          requireContext = c;
+          break findContext;
+        }
     }
-    return moduleId;
+    
+    if (!requireContext)
+      throw 'Unable to detect RequireJS context.';
+    
+    $z.getModuleId = function(module, definitionMatching) {
+      var moduleId;
+      if (module == null)
+        return moduleId;
+      for (var curId in modules) {
+        if (modules[curId] == module)
+          moduleId = curId;
+        else if (definitionMatching !== false && modules[curId] && module._definition == modules[curId])
+          moduleId = curId;
+      }
+      return moduleId;
+    }
   }
   
   /*
