@@ -9,12 +9,12 @@
  * A bundle excluding this could be used to implement a different inheritance framework.
  * 
  */
-
 define(['zoe', 'is!browser?./zest-render', './escape', './component'], function(zoe, $z, escape, Component) {
   var $z = $z || {};
   //component adds zoe onto $z
   $z.Component = Component;
   $z.esc = escape;
-  zoe.extend($z, zoe);
+  if (!$z.fn)
+    zoe.extend($z, zoe);
   return $z;
 });

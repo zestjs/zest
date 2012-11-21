@@ -26,13 +26,16 @@
  */
 
 // make volo think this is an amd module
-if (false) define(null);
+if (false) define({});
 
 (function() {
   // get the script tag for this script
   var scriptTag = Array.prototype.pop.call(document.getElementsByTagName('script'));
   
   var zid = scriptTag.getAttribute('data-zid');
+  
+  if (zid == null)
+    return;
   
   var controllerId = scriptTag.getAttribute('data-controllerid');
   
@@ -60,7 +63,7 @@ if (false) define(null);
   var requireInlineUrl = require.toUrl('require-inline');
   
   // require zest and the component id to do the enhancements
-  require(['zest', controllerId, 'json/json'], function($z, controller) {
+  require(['zest', controllerId, 'json/json'], function($z, controller, JSON) {
     if ($z._nextComponentId <= zid.substr(1))
       $z._nextComponentId = parseInt(zid.substr(1)) + 1;
 
