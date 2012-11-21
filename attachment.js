@@ -8,7 +8,7 @@
  * the render component and also the 'attach!' load of any render component dependencies
  * 
  */
-define(['require'], function(require) {
+define(['module'], function(module) {
   var attach = {};
   
   // determine the current context
@@ -128,7 +128,7 @@ define(['require'], function(require) {
         // get the dependency to check if it is a render component
         var depComponent = attachContext.require(depId);
         if (depComponent && depComponent.render)
-          loadDeps.push('$zest-server/attach!' + depId);
+          loadDeps.push(module.id + '!' + depId);
       }
       
       // do the require to attach critical dependencies only
