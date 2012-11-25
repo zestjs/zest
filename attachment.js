@@ -106,6 +106,8 @@ define(['module'], function(module) {
       
       if (typeof component.attach == 'string')
         loadDeps.push(attachContext.makeModuleMap(component.attach, parentMap, false, true).id);
+      else
+        loadDeps.push(moduleId);
         
       var deps = depMap[name];
       
