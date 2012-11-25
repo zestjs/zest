@@ -237,6 +237,10 @@ define(['require', 'selector', 'module'], function(require, $, module) {
     else if (structure.render)
       self.renderComponent(structure, options, write, complete);
     
+    // empty render component
+    else if ('render' in structure)
+      return complete();
+    
     else {
       $z.dir(structure);
       throw 'Unrecognised structure item for render.';

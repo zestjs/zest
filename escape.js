@@ -10,7 +10,7 @@ define(function() {
   var esc = function(text, mode) {
     var args = Array.prototype.splice.call(arguments, 2, arguments.length - 2);
     args.unshift(text);
-    return esc[mode](args);
+    return esc[mode].apply(esc, args);
   }
   //useful for css sizes etc. Suffix allows for dimensions eg px
   esc.num = function(text, nanValue) {
@@ -23,7 +23,7 @@ define(function() {
   
   //html attributes
   esc.attr = function(attr) {
-    return attr
+    return (attr + '')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/&/g, '&amp;')
@@ -42,23 +42,14 @@ define(function() {
       .replace(/>/g, '&gt;');
   }
   
-  //quoted strings in javascript
-  esc.strVar = function(str) {
-    return (str + '')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
-      .replace(/<\//, '<\\/'); //since </script> can be read through a string value
-  }
-  
   
   esc.cssAttr = function(attr) {
     return (attr + '')
+      .replace(/"/g, '&quot;')
+      .replace(/{/g, '')
+      .replace(/}/g, '')
+      .replace(/:/g, '')
       .replace(/;/g, '');
-  }
-  
-  //json </script> attack
-  esc.json = function(jsonStr) {
-    return str.replace(/<\//, '<\\/');
   }
   
   //filtered html

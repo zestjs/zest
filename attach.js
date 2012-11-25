@@ -41,8 +41,8 @@ if (false) define({});
   
   var options = scriptTag.getAttribute('data-options');
   
-  if (typeof options != 'string' || options.length == 0)
-    options = '{}';
+  if (options)
+    options = JSON.parse(options);
     
   // find starting element
   var curElement = document.getElementById(zid);
@@ -69,12 +69,12 @@ if (false) define({});
 
     $z._elements[zid] = els;
     
-    var o = JSON.parse(options);
+    var attach = controller.attach ? controller.attach : controller;
     
-    if (controller.attach)
-      $z._controllers[zid] = controller.attach.call(controller, o, els);
+    if (attach.length == 1 && !options)
+      $z._controllers[zid] = attach.call(controller, els);
     else
-      $z._controllers[zid] = controller.call(controller, o, els);
+      $z._controllers[zid] = attach.call(controller, options || {}, els);
   });
   
   // remove the attach script itself
