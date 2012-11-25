@@ -416,10 +416,16 @@ define(['require', 'selector', 'module'], function(require, $, module) {
           
         $z._elements[_id] = $$;
         
-        var _options = component.pipe ? component.pipe(options) || {} : {};
-        _options.global = options.global;
+        var _options = component.pipe ? component.pipe(options) || {} : null;
+        if (_options)
+          _options.global = options.global;
         
-        var registerController = function(controller) {
+        var registerController = function(controllerFunction) {
+          if (controllerFunction.length == 1 && !_options)
+            controller = controllerFunction($$);
+          else
+            controller = controllerFunction($$, _options || { global: options.global });
+
           if (!controller)
             return complete();
           
@@ -452,11 +458,11 @@ define(['require', 'selector', 'module'], function(require, $, module) {
           }
           
           require([attachId], function(attachment) {
-            registerController(attachment(_options, $$));
+            registerController(attachment);
           });
         }
         else
-          registerController(component.attach(_options, $$));
+          registerController(component.attach);
       }
       
       // check if the render is a functional
