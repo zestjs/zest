@@ -162,6 +162,10 @@ define(['require', 'selector', 'module'], function(require, $, module) {
    *
    */
   $z.render = function(structure, options, container, complete) {
+    if (arguments.length == 2) {
+      container = options;
+      options = {};
+    }
     if (typeof container == 'function') {
       complete = container;
       container = options;
@@ -265,6 +269,8 @@ define(['require', 'selector', 'module'], function(require, $, module) {
   // passing component allows the region to be checked from the component first
   $z.render.renderTemplate = function(template, component, options, write, complete) {
     var $$;
+
+    template = template.trim();
     
     // Find all instances of '{`regionName`}'
     var regions = template.match(/\{\`\w+\`\}/g);
@@ -401,6 +407,8 @@ define(['require', 'selector', 'module'], function(require, $, module) {
           return complete();
         
         // attachment
+        if ($$[0].id)
+          _id = $$[0].id;
         
         // enforce labelling
         if (_id === undefined) {
@@ -473,6 +481,9 @@ define(['require', 'selector', 'module'], function(require, $, module) {
           self.renderTemplate(structure, component, options, write, renderAttach);
         else
           self.renderItem(structure, { global: options.global }, write, renderAttach);
+      }
+      else if (typeof component.render == 'string') {
+        self.renderTemplate(component.render, component, options, write, renderAttach);
       }
       else
         self.renderItem(component.render, options, write, renderAttach);
