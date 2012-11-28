@@ -1,9 +1,25 @@
 /*
- * Zest JS
- * zestjs.org  
+ * Zest JS Rendering
+ * zestjs.org
+ *
+ *
+ * Provides the ZestJS Render Engine:
+ * - $z.render
+ * - $z.$ - the contextual component DOM selector
+ * - $z.$z - the component selector
+ * - $z.dispose
+ *
+ * Can be used as a global script, or in AMD.
+ *
+ * Read more about rendering at http://zestjs.org/docs
  * 
  */
-define(['require', 'selector', 'module'], function(require, $, module) {
+(function (root, factory) {
+  if (typeof define === 'function' && define.amd)
+    define(['require', 'selector', 'module'], factory);
+  else
+    factory(null, window.$ || document.querySelectorAll, null);
+}(this, function(require, $, module) {
   
   var config = typeof module != 'undefined' && module.config();
   
@@ -12,7 +28,8 @@ define(['require', 'selector', 'module'], function(require, $, module) {
   var $z = function() { return $z.main.apply(this, arguments); }
   
   //make a global
-  this.$z = $z;
+  if (!config || config.defineGlobal)
+    this.$z = $z;
   
   //component store
   $z._controllers = {};
@@ -46,7 +63,7 @@ define(['require', 'selector', 'module'], function(require, $, module) {
    * selector.
    *
    * If no selector is provided, all components are returned.
-   * If no context is provided, this.$$ is checked, followed by document.
+   * If no context is provided, this is checked to see if it is a controller, followed by document.
    *
    * This allows for contextual component selection with
    *
@@ -56,7 +73,7 @@ define(['require', 'selector', 'module'], function(require, $, module) {
   $z.main = $z.$z = function(componentSelector, context, elementsOnly) {
   
     componentSelector = componentSelector || '*';
-    context = context || this.$$ || document.body;
+    context = context || $z.getElements(this) || document.body;
     
     var asList = componentSelector.substr(componentSelector.length - 2, 2) == '[]';
     if (asList)
@@ -103,7 +120,7 @@ define(['require', 'selector', 'module'], function(require, $, module) {
   /*
    * Contextual selector
    *
-   * this.$$ is used as the context if not provided
+   * 'this' is used as the controller context if not provided
    *
    * allowing for:
    *
@@ -117,7 +134,7 @@ define(['require', 'selector', 'module'], function(require, $, module) {
    */
   $z.$ = function(selector, context) {
     
-    context = context || this.$$ || document;
+    context = context || $z.getElements(this) || document;
     
     if (context.nodeType)
       return $(selector, context);
@@ -174,10 +191,10 @@ define(['require', 'selector', 'module'], function(require, $, module) {
     options = options || {};
     options.global = options.global || $z._global;
 
-    var $$ = $z.render.Buffer();
+    var els = $z.render.Buffer();
     
     var _complete = function() {
-      $z.render.Buffer(container.length ? container[0] : container).write($$);
+      $z.render.Buffer(container.length ? container[0] : container).write(els);
       if (complete)
         complete();
     }
@@ -185,11 +202,11 @@ define(['require', 'selector', 'module'], function(require, $, module) {
     // the only time a string is a moduleId
     if (typeof structure == 'string') {
       require([structure], function(structure) {
-        $z.render.renderItem(structure, options, $$.write, _complete)
+        $z.render.renderItem(structure, options, els.write, _complete)
       });
     }
     else
-      $z.render.renderItem(structure, options, $$.write, _complete);
+      $z.render.renderItem(structure, options, els.write, _complete);
   }
   
   $z._nextComponentId = 1;
@@ -268,7 +285,7 @@ define(['require', 'selector', 'module'], function(require, $, module) {
   
   // passing component allows the region to be checked from the component first
   $z.render.renderTemplate = function(template, component, options, write, complete) {
-    var $$;
+    var els;
 
     template = template.trim();
     
@@ -328,39 +345,39 @@ define(['require', 'selector', 'module'], function(require, $, module) {
       }
     
     // then render into the body
-    $$ = buffer.toArray();
+    els = buffer.toArray();
     write(buffer);
     
     // do region rendering
     if (!regions)
-      return complete($$);
+      return complete(els);
 
     var completedRegions = 0;
     for (var i = 0; i < regions.length; i++)
       (function(region, regionNode) {
         var regionStructure = (component && component[region]) || options[region];
         
-        // check if the region is flat in $$
-        var regionIndex = $$.indexOf(regionNode);
+        // check if the region is flat in els
+        var regionIndex = els.indexOf(regionNode);
         
-        $z.render.renderItem(regionStructure, options, function(_$$) {
+        $z.render.renderItem(regionStructure, options, function(_els) {
           var buffer = $z.render.Buffer();
-          buffer.write(_$$);
+          buffer.write(_els);
           if (buffer.container)
             while (buffer.container.childNodes.length > 0) {
               if (regionIndex != -1)
-                $$.splice(regionIndex, 0, buffer.container.childNodes[0]);
+                els.splice(regionIndex, 0, buffer.container.childNodes[0]);
               regionNode.parentNode.insertBefore(buffer.container.childNodes[0], regionNode);          
             }
         }, function() {
           regionNode.parentNode.removeChild(regionNode);
           if (regionIndex != -1)
-            $$.splice(regionIndex, 1);
+            els.splice(regionIndex, 1);
           
           // detect completion
           completedRegions++;
           if (completedRegions == regions.length)
-            complete($$);
+            complete(els);
         });
         
       })(regions[i], regionNodes[regions[i]]);
@@ -390,39 +407,39 @@ define(['require', 'selector', 'module'], function(require, $, module) {
       delete options.id;
       delete options.type;
       
-      var renderAttach = function($$) {
+      var renderAttach = function(els) {
         
         // label component if labels provided
         if (_id) {
           if ($z._elements[_id])
             throw 'Id ' + _id + ' already defined!';
-          $$[0].id = _id;
+          els[0].id = _id;
         }
         if (_type) {
-          if (!$$[0].getAttribute(typeAttr))
-            $$[0].setAttribute(typeAttr, _type);
+          if (!els[0].getAttribute(typeAttr))
+            els[0].setAttribute(typeAttr, _type);
         }
         
         if (!component.attach)
           return complete();
         
         // attachment
-        if ($$[0].id)
-          _id = $$[0].id;
+        if (els[0].id)
+          _id = els[0].id;
         
         // enforce labelling
         if (_id === undefined) {
           _id = 'z' + $z._nextComponentId++;
           if ($z._elements[_id])
             throw 'Id ' + _id + ' already has an attachment defined!';
-          $$[0].id = _id;
+          els[0].id = _id;
         }
         if (_type === undefined) {
-          if (!$$[0].getAttribute(typeAttr))
-            $$[0].setAttribute(typeAttr, (_type = ''));
+          if (!els[0].getAttribute(typeAttr))
+            els[0].setAttribute(typeAttr, (_type = ''));
         }
           
-        $z._elements[_id] = $$;
+        $z._elements[_id] = els;
         
         var _options = component.pipe ? component.pipe(options) || {} : null;
         if (_options)
@@ -430,19 +447,38 @@ define(['require', 'selector', 'module'], function(require, $, module) {
         
         var registerController = function(controllerFunction) {
           if (controllerFunction.length == 1 && !_options)
-            controller = controllerFunction($$);
+            controller = controllerFunction(els);
           else
-            controller = controllerFunction($$, _options || { global: options.global });
+            controller = controllerFunction(els, _options || { global: options.global });
 
           if (!controller)
             return complete();
           
           var dispose = controller.dispose;
-          
-          if (!dispose || (dispose && !controller.dispose.length && !dispose.fns)) {
+
+          // if we have zoe, use the STOP_FIRST_DEFINED chain
+          if (dispose && $z.fn) {
+            var stop_first_defined = $z.fn.STOP_FIRST_DEFINED = $z.fn.STOP_FIRST_DEFINED || function(self, args, fns) {
+              var output = fns[0].apply(self, args);
+              if (output !== 'undefined')
+                return;
+              for (var i = 1; i < fns.length; i++)
+                fns[i].apply(self, args);
+            }
+            if (dispose.constructor = $z.fn)
+              dispose.run = stop_first_defined;
+            else
+              dispose = $z.fn([dispose], stop_first_defined);
+            dispose.first(function(system) {
+              if (!system)
+                return $z.dispose(els);
+            });
+          }
+          // no zoe -> create manually
+          else {
             controller.dispose = function(system) {
               if (!system)
-                return $z.dispose($$);
+                return $z.dispose(els);
               if (dispose)
                 dispose();
             }
@@ -534,39 +570,39 @@ define(['require', 'selector', 'module'], function(require, $, module) {
         a.push(this.container.childNodes[i]);
       return a;
     }
-    buffer.write = function($$) {
+    buffer.write = function(els) {
       // html string
-      if (typeof $$ == 'string') {
-        var firstTag = $$.match(/<(\w*)[^>]*>/);
+      if (typeof els == 'string') {
+        var firstTag = els.match(/<(\w*)[^>]*>/);
         firstTag = (firstTag && firstTag[1]) || 'div';
         var _container = document.createElement(getContainerTag(firstTag));
-        _container.innerHTML = $$;
+        _container.innerHTML = els;
         buffer.write({
           write: true,
           container: _container
         });
       }
       // another buffer (assumed to have its container out the dom as in a hidden buffer - so container not used)
-      else if ($$.write) {
-        if (!buffer.container && $$.container.childNodes[0]) {
-          var firstTag = ($$.container.childNodes[0].tagName || 'span').toLowerCase();
+      else if (els.write) {
+        if (!buffer.container && els.container.childNodes[0]) {
+          var firstTag = (els.container.childNodes[0].tagName || 'span').toLowerCase();
           buffer.container = document.createElement(getContainerTag(firstTag));
         }
-        while ($$.container.childNodes.length > 0)
-          buffer.container.appendChild($$.container.childNodes[0]);
+        while (els.container.childNodes.length > 0)
+          buffer.container.appendChild(els.container.childNodes[0]);
       }
       // dom element
-      else if ($$.nodeType) {
-        buffer.container = buffer.container || document.createElement(getContainerTag($$.tagName.toLowerCase()));
-        buffer.container.appendChild($$);
+      else if (els.nodeType) {
+        buffer.container = buffer.container || document.createElement(getContainerTag(els.tagName.toLowerCase()));
+        buffer.container.appendChild(els);
       }
       // array of elements
-      else if ($$.length) {
-        if (!buffer.container && $$[0]) {
-          buffer.container = document.createElement($$[0].tagName.toLowerCase());
+      else if (els.length) {
+        if (!buffer.container && els[0]) {
+          buffer.container = document.createElement(els[0].tagName.toLowerCase());
         }
-        for (var i = 0; i < $$.length; i++)
-          buffer.container.appendChild($$[i]);
+        for (var i = 0; i < els.length; i++)
+          buffer.container.appendChild(els[i]);
       }
     }
     return buffer;
@@ -607,6 +643,18 @@ define(['require', 'selector', 'module'], function(require, $, module) {
     }
   }
   
+
+  /*
+   * $z.getElements
+   * Given any component id or controller instance object, return its DOM elements
+   */
+  $z.getElements = function(com) {
+    if (typeof com == 'string')
+      return $z._elements[com];
+    for (var controller in $z._controllers)
+      if ($z._controllers[controller] == com)
+        return $z._elements[controller];
+  }
   /*
    * $z.getComponent
    * Given any html element, find the component responsible for its management
@@ -661,20 +709,20 @@ define(['require', 'selector', 'module'], function(require, $, module) {
     var components = $z('*[]', els);
     for (var i = 0; i < components.length; i++) {
       var component = components[i];
-      //dynamic disposal
+      // dynamic disposal
       if (component && component.dispose && !component._disposed) {
         component.dispose(true);
         component._disposed = true;
       }
-      //dynamic css and register clearing
+      // clear from register
       for (var id in $z._controllers) {
-        //remove component
         if ($z._controllers[id] == component) {
           delete $z._controllers[id];
           delete $z._elements[id];
           break;
         }
       }
+      // if static, clear from elements
       for (var id in $z._elements) {
         if ($z._elements[id] == component) {
           delete $z._elements[id];
@@ -690,5 +738,4 @@ define(['require', 'selector', 'module'], function(require, $, module) {
   }
   
   return $z;
-});
-
+}));

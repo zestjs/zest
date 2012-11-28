@@ -1,11 +1,22 @@
- //routes resolve to pages
-//$z.App should me in Main
+/*
+ * ZestJS Escaping Library
+ *
+ * Can be used as an AMD or global.
+ * If using as a global, assumes that 'zest-render.js' is already loaded.
+ *
+ *
+ * Read more on escaping functions at 
+ * http://zestjs.org/docs#Default%20Options%20and%20Escaping
+ *
+ */
 
-// reference: https://www.owasp.org/index.php/XSS_(Cross_Site_Scripting)_Prevention_Cheat_Sheet
+(function (root, factory) {
+  if (typeof define === 'function' && define.amd)
+    define(factory);
+  else
+    root.$z.esc = factory();
+}(this, function() {
 
-// escaping of arbitrary css not provided
-
-define(function() {
   //arguments after mode are passed as successive arguments to the escape function
   var esc = function(text, mode) {
     var args = Array.prototype.splice.call(arguments, 2, arguments.length - 2);

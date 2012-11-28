@@ -1,16 +1,17 @@
 /*
  * Main Zest bundle
- * Includes the render, escape and component parts.
+ * Includes the render, escape, component and zoe parts.
  *
- * For a minimal bundle, can just use the zest-render or make a custom
- * bundle including the escape or router optionally.
- *
+ * To just load rendering on its own, use 'zest/zest-render'.
+ * 
  * $z.Component is dependent on the inheritance framework ZOE (~6KB).
  * A bundle excluding this could be used to implement a different inheritance framework.
+ *
+ * http://zestjs.org
  * 
  */
 define(['zoe', 'is!browser?./zest-render', './escape', './component'], function(zoe, $z, escape, Component) {
-  var $z = $z || {};
+  $z = $z || {};
   //component adds zoe onto $z
   $z.Component = Component;
   $z.esc = escape;

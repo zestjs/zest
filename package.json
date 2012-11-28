@@ -4,12 +4,6 @@
     "type": "directory",
     "dependencies": {
       "selector": "guybedford/selector",
-      "require-css": "guybedford/require-css",
-      "require-less": "guybedford/require-less",
-      "cs": "jrburke/require-cs",
-      "empty": "guybedford/empty-module",
-      "zoe": "zestjs/zoe",
-      "rest": "guybedford/rest",
       "json": "guybedford/json",
       "require-inline": "guybedford/require-inline"
     }
