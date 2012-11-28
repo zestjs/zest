@@ -6,7 +6,9 @@
       "selector": "guybedford/selector",
       "json": "guybedford/json",
       "require-inline": "guybedford/require-inline",
-      "zoe": "zestjs/zoe"
+      "require-css": "guybedford/require-css",
+      "zoe": "zestjs/zoe",
+      "empty": "guybedford/empty"
     }
   }
 }

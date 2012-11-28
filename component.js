@@ -8,7 +8,7 @@
  */
 (function (root, factory) {
   if (typeof define === 'function' && define.amd)
-    define(['zoe', 'is!browser?./zest-render']factory);
+    define(['zoe', 'is!browser?./zest-render'], factory);
   else
     root.$z.Component = factory($z, $z);
 }(this, function(zoe, $z) {
@@ -22,18 +22,18 @@
    * Read more at http://zestjs.org/docs#$z.Component
    *
    */
-  var Component = {
+  return {
     _implement: [zoe.Constructor],
     
     _extend: {
       'options': 'APPEND',
       'type': 'REPLACE',
-      'pipe': $z.fn.executeReduce(function(){ return {} }, function(out1, out2) {
-        return $z.extend(out1, out2, {
+      'pipe': zoe.fn.executeReduce(function(){ return {} }, function(out1, out2) {
+        return zoe.extend(out1, out2, {
           '*': 'REPLACE',
           'global': 'APPEND'
         });
-      });,
+      }),
       'load': zoe.extend.makeChain('ASYNC')
     },
 
@@ -51,9 +51,7 @@
     prototype: {
       $: $z && $z.$,
       $z: $z && $z.$z,
-      dispose: $z.fn()
+      dispose: zoe.fn()
     }
   };
-  
-  return Component;
-});
+}));
