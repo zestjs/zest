@@ -5,7 +5,8 @@
     "dependencies": {
       "selector": "guybedford/selector",
       "json": "guybedford/json",
-      "require-inline": "guybedford/require-inline"
+      "require-inline": "guybedford/require-inline",
+      "zoe": "zestjs/zoe"
     }
   }
 }
