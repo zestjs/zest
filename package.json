@@ -8,7 +8,7 @@
       "require-inline": "guybedford/require-inline",
       "require-css": "guybedford/require-css",
       "zoe": "zestjs/zoe",
-      "empty": "guybedford/empty"
+      "empty": "guybedford/empty-module"
     }
   }
 }
