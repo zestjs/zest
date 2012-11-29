@@ -44,7 +44,7 @@
         }
     },
     
-    construct: function(o, els) {
+    construct: function(els, o) {
       this.o = o;
     },
     

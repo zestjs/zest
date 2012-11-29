@@ -7,6 +7,10 @@
  * It loads that module, includes the css! and less! dependencies of
  * the render component and also the 'attach!' load of any render component dependencies
  * 
+ *
+ * attachment!moduleId used for attach
+ * attachment!#moduleId used for render
+ *
  */
 define(['module'], function(module) {
   var attach = {};
@@ -69,7 +73,16 @@ define(['module'], function(module) {
       depMap[map.id] = depArray;
     };
   }
-  
+
+
+  attach.normalize = function(name, normalize) {
+    if (name.substr(0, 1) == '#')
+      return '#' + normalize(name.substr(1));
+    else
+      return normalize(name);
+  }
+
+
   /*
    * attach.load
    *
@@ -88,6 +101,12 @@ define(['module'], function(module) {
   attach.load = function(moduleId, req, load, config) {
     if (moduleId == '')
       return load();
+
+    var includeRender = false;
+    if (moduleId.substr(0, 1) == '#') {
+      includeRender = true;
+      moduleId = moduleId.substr(1);
+    }
     
     var loadDeps = [];
     attachContext.require([moduleId], function(component) {
@@ -104,9 +123,12 @@ define(['module'], function(module) {
       
       var parentMap = attachContext.makeModuleMap(moduleId, null, false, false);
       
+      if (includeRender)
+        loadDeps.push(moduleId);
+
       if (typeof component.attach == 'string')
         loadDeps.push(attachContext.makeModuleMap(component.attach, parentMap, false, true).id);
-      else
+      else if (!includeRender)
         loadDeps.push(moduleId);
         
       var deps = depMap[name];
@@ -130,7 +152,7 @@ define(['module'], function(module) {
         // get the dependency to check if it is a render component
         var depComponent = attachContext.require(depId);
         if (depComponent && depComponent.render)
-          loadDeps.push(module.id + '!' + depId);
+          loadDeps.push(module.id + '!' + (includeRender ? '#' : '') + depId);
       }
       
       // do the require to attach critical dependencies only
@@ -140,7 +162,7 @@ define(['module'], function(module) {
   
   
   
-  // auto-attachment memorial
+  // auto-attachment memorial code. just because it hurts to delete this.
   /*
    * createAttachment
    *
