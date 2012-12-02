@@ -3,11 +3,11 @@
   "volo": {
     "type": "directory",
     "dependencies": {
-      "selector": "guybedford/selector",
-      "json": "guybedford/json",
-      "require-inline": "guybedford/require-inline",
-      "require-css": "guybedford/require-css",
-      "zoe": "zestjs/zoe"
+      "selector": "guybedford/selector/master",
+      "json": "guybedford/json/master",
+      "require-inline": "guybedford/require-inline/master",
+      "require-css": "guybedford/require-css/master",
+      "zoe": "https://raw.github.com/zestjs/zoe/master/zoe.js"
     }
   }
 }
