@@ -149,7 +149,7 @@
   esc.url = function(url) {
     if (url.substr(0, 11) == 'javascript:')
       return 'javascript:void(0)';
-    return url;
+    return encodeURI(url);
   }
   
   return esc;
