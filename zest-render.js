@@ -200,13 +200,7 @@
     }
     
     // the only time a string is a moduleId
-    if (typeof structure == 'string') {
-      require([structure], function(structure) {
-        $z.render.renderItem(structure, options, els.write, _complete)
-      });
-    }
-    else
-      $z.render.renderItem(structure, options, els.write, _complete);
+    $z.render.renderItem(structure, options, els.write, _complete)
   }
   
   $z._nextComponentId = 1;
@@ -227,9 +221,17 @@
     
     var self = this;
     
+    if (typeof structure == 'undefined' || structure === null)
+      return complete();
+
     // string templates
-    if (typeof structure == 'string')
-      self.renderTemplate(structure, null, options, write, complete);
+    else if (typeof structure == 'string')
+      if (structure.substr(0, 1) == '@')
+        require([structure.substr(1)], function(structure) {
+          self.renderItem(structure, options, write, complete);
+        });
+      else
+        self.renderTemplate(structure, null, options, write, complete);
     
     // dynamic template or structure function
     else if (typeof structure == 'function' && !structure.render) {
@@ -508,21 +510,27 @@
         else
           registerController(component.attach);
       }
-      
-      // check if the render is a functional
-      if (typeof component.render == 'function' && !component.render.render && component.render.length == 1) {
-        var structure = component.render(options);
-        // check if we have a template
-        if (typeof structure == 'string')
+
+      var renderFunctional = function(structure) {
+        if (typeof structure == 'string' && structure.substr(0, 1) == '@') {
+          require([structure.substr(1)], renderFunctional);
+          return;
+        }
+        // functional
+        if (typeof structure == 'function' && !structure.render && structure.length == 1) {
+          structure = structure.call(component, options);
+          if (typeof structure == 'string')
+            self.renderTemplate(structure, component, options, write, renderAttach);
+          else
+            self.renderItem(structure, { global: options.global }, write, renderAttach);
+        }
+        else if (typeof structure == 'string')
           self.renderTemplate(structure, component, options, write, renderAttach);
         else
-          self.renderItem(structure, { global: options.global }, write, renderAttach);
+          self.renderItem(structure, options, write, renderAttach);
       }
-      else if (typeof component.render == 'string') {
-        self.renderTemplate(component.render, component, options, write, renderAttach);
-      }
-      else
-        self.renderItem(component.render, options, write, renderAttach);
+
+      renderFunctional(component.render);
     }
     
     if (component.load) {
