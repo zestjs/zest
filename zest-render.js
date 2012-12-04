@@ -501,7 +501,7 @@
           _options.global = options.global;
         
         var registerController = function(controllerFunction) {
-          controller = controllerFunction(els[0], _options || { global: options.global });
+          controller = controllerFunction.call(component, els[0], _options || { global: options.global });
 
           if (!controller)
             return complete();

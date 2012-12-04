@@ -50,8 +50,7 @@
     
     prototype: {
       $: $z && $z.$,
-      $z: $z && $z.select,
-      dispose: zoe.fn()
+      $z: $z && $z.select
     }
   };
 }));
