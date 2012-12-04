@@ -41,40 +41,59 @@ if (false) define({});
   
   var options = scriptTag.getAttribute('data-options');
   
-  if (options)
+  if (options) {
     options = JSON.parse(options);
+    options.global = $z._global;
+  }
     
-  // find starting element
-  var curElement = document.getElementById(zid);
+  // find attach element
+  var el = document.getElementById(zid);
   
-  if (!curElement)
+  if (!el)
     throw 'No component with id ' + zid + ' found for attachment!';
   
   // main component HTML elements
-  var els = [curElement];
+  //var els = [curElement];
   
   // step down through siblings until we find this script
-  while (curElement != scriptTag && (curElement = curElement.nextSibling))
-    els.push(curElement);
+  //while (curElement != scriptTag && (curElement = curElement.nextSibling))
+  //  els.push(curElement);
   
-  if (curElement != scriptTag)
-    throw 'Unable to detect component template for ' + zid + '. Malformed HTML.';
+  //if (curElement != scriptTag)
+  //  throw 'Unable to detect component template for ' + zid + '. Malformed HTML.';
   
   var requireInlineUrl = require.toUrl('require-inline');
   
   // require zest and the component id to do the enhancements
-  require(['zest', controllerId, 'json/json'], function($z, controller, JSON) {
+  require(['zest', controllerId, 'json/json'], function($z, controllerFunction, JSON) {
     if ($z._nextComponentId <= zid.substr(1))
       $z._nextComponentId = parseInt(zid.substr(1)) + 1;
+    
+    var attach = controllerFunction.attach ? controllerFunction.attach : controllerFunction;
+    
+    var controller = attach.call(controllerFunction, el, options || { global: $z._global });
 
-    $z._elements[zid] = els;
-    
-    var attach = controller.attach ? controller.attach : controller;
-    
-    if (attach.length == 1 && !options)
-      $z._controllers[zid] = attach.call(controller, els);
+    $z._components[zid] = controller || el;
+
+    var dispose = controller.dispose;
+
+    if (dispose && $z.fn) {
+      if (dispose.constructor == $z.fn)
+        dispose.run = $z.fn.STOP_FIRST_DEFINED;
+      else
+        dispose = $z.fn([dispose], $z.fn.STOP_FIRST_DEFINED);
+      dispose.first(function(system) {
+        if (!system)
+          return $z.dispose(el);
+      })
+    }
     else
-      $z._controllers[zid] = attach.call(controller, options || {}, els);
+      controller.dispose = function(system) {
+        if (!system)
+          return $z.dispose(el);
+        if (dispose)
+          dispose();
+      }
   });
   
   // remove the attach script itself

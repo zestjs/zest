@@ -39,18 +39,18 @@
 
     _integrate: function(def) {
       if (def.construct || def.prototype)
-        this.attach = this.attach || function(els, o) {
-          return new this(o, els);
+        this.attach = this.attach || function(el, o) {
+          return new this(el, o);
         }
     },
     
-    construct: function(els, o) {
+    construct: function(el, o) {
       this.o = o;
     },
     
     prototype: {
       $: $z && $z.$,
-      $z: $z && $z.$z,
+      $z: $z && $z.select,
       dispose: zoe.fn()
     }
   };

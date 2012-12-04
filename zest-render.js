@@ -25,15 +25,14 @@
   
   var typeAttr = (typeof config != 'undefined' && config.typeAttribute) || 'component';
   
-  var $z = function() { return $z.main.apply(this, arguments); }
+  var $z = function() { return $z.selectAll.apply(this, arguments); }
   
   //make a global
   if (!config || config.defineGlobal)
     this.$z = $z;
   
   //component store
-  $z._controllers = {};
-  $z._elements = {};
+  $z._components = {};
   
   //global render option
   $z._global = null;
@@ -59,7 +58,7 @@
    * 
    * Ocassionally, one would expect to get a list of items, but it may turn out to only
    * be one when there is only one item. For ease of coding it can be useful to still get
-   * this single item back in an array. To specify this, simply provide the suffix "[]" to the
+   * this single item back in an array. To specify this, simply provide the suffix "*" to the
    * selector.
    *
    * If no selector is provided, all components are returned.
@@ -70,51 +69,48 @@
    * component.$z = $z.$z
    * 
    */
-  $z.main = $z.$z = function(componentSelector, context, elementsOnly) {
-  
+  $z.selectAll = function(componentSelector, context) {
     componentSelector = componentSelector || '*';
-    context = context || $z.getElements(this) || document.body;
-    
-    var asList = componentSelector.substr(componentSelector.length - 2, 2) == '[]';
-    if (asList)
-      componentSelector = componentSelector.substr(0, componentSelector.length - 2);
-    
-    var firstPart = componentSelector.substr(0, componentSelector.indexOf(' ')) || componentSelector;
-    
-    var subparts = firstPart.split('#');
-    var firstSelector = (subparts[0] != '' && subparts[0] != '*' ? '[' + typeAttr + '=' + subparts[0] + ']' : '[' + typeAttr + ']') +
-      (subparts[1] ? '#' + subparts[1] : '');
-    
-    var matches = $z.$(firstSelector, context);
-    
-    var outMatches = [];
-    var els;
-    //if we're at the last depth
-    if (firstPart == componentSelector) {
-      for (var i = 0; i < matches.length; i++) {
-        if (els = $z._elements[matches[i].id])
-          outMatches[i] = (!elementsOnly && $z._controllers[matches[i].id]) || els;
-        else
-          outMatches[i] = matches[i];
+    context = context || $z.getElement(this) || document;
+
+    if (componentSelector.indexOf(',') != -1)
+      throw 'Multiple component selection not currently supported.'
+
+    var relationRegEx = /\s*[>+~]\s*|\s+/g;
+
+    var relations = componentSelector.match(relationRegEx) || [];
+
+    // break down the selector into separate terms (separated by the standard relations)
+    var terms = componentSelector.split(relationRegEx);
+
+    var standardSelector = '';
+
+    for (var i = 0; i < terms.length; i++) {
+      // check each term for a type name starting with a capital letter
+      var typeName;
+      if ((typeName = terms[i].match(/^[A-Z][^\.#:\[\*]*/))) {
+        // replace the type name with '*[component="typeName"]'
+        terms[i] = '*[' + typeAttr + '="' + typeName[0] + '"]' + terms[i].substr(typeName[0].length);
       }
-      
-      if (matches.length == 1 && !asList)
-        return outMatches[0];
-      else
-        return outMatches;
+
+      standardSelector += terms[i] + (relations[i] || '');
     }
-    
-    //run through matches, creating array of element arrays for matches
-    var allMatches = [];
-    for (var i = 0; i < matches.length; i++) {
-      if (els = $z._elements[matches[i].id])
-        allMatches = allMatches.concat(els);
-      else
-        allMatches.push(matches[i]);
-    }
-    
-    //run next level selector on this
-    return $z.$z(componentSelector.substr(firstPart.length + 1), allMatches);
+
+    // trim the selector and ensure that the last item is always a component
+    standardSelector = standardSelector.trim() + '[' + typeAttr + ']';
+
+    // run the standard selector
+    var matches = $z.$(standardSelector, context);
+
+    // convert the matches into a list of components
+    for (var i = 0; i < matches.length; i++)
+      matches[i] = $z._components[matches[i].id] || matches[i];
+
+    return matches;
+  }
+
+  $z.select = function(componentSelector, context) {
+    return $z.selectAll.call(this, componentSelector, context)[0];
   }
   
   /*
@@ -128,18 +124,53 @@
    *
    * giving contextual selection
    *
-   * context as array includes array items in selection.
-   * context as a container excludes the container itself (standard selection).
+   * context can be single DOM element or array
+   * when an array, context behaves as if contained in an imaginary parent
+   * container, allowing selection of the array items themselves
    *
+   * context array is assumed as sibling elements. if not, things will break.
    */
   $z.$ = function(selector, context) {
     
-    context = context || $z.getElements(this) || document;
-    
-    if (context.nodeType)
+    context = context || $z.getElement(this) || document;
+
+    // array case - use first container element
+    if (!context.nodeType && context.length && context[0])
+      context = context[0];
+
+    // non array case - standard selection
+    if (!context.nodeType)
+      throw 'Selection context must be a DOM node';
+
+    // determine if we have a direct contextual root child
+    selector = selector.trim();
+    var directContextChild = selector.substr(0, 1) == '>';
+    if (directContextChild)
+      selector = selector.substr(1).trim();
+
+    if (!directContextChild)
       return $(selector, context);
-    
-    matches = $(selector, context[0].parentNode);
+
+    // expand the context with a unique selector for the direct context child
+    var createdId;
+    if (!context.id) {
+      var curNum = 1;
+      do {
+        createdId = 'zcontext' + curNum++;
+      } while (document.getElementById(createdId));
+      context.id = createdId;
+    }
+
+    var expandedContext = context.parentNode;
+    var expandedSelector = '#' + context.id + '>' + selector;
+    var matches = $(expandedSelector, expandedContext);
+    if (createdId)
+      context.id = '';
+    return matches;
+
+    // OLD array case - run selector on context parent including direct child support, then filter to context elements
+    /* var matches = $z.$(selector, context[0].parentNode);
+
     var filtered;
     if (matches instanceof NodeList)
       filtered = [];
@@ -148,8 +179,8 @@
     
     for (var i = 0; i < matches.length; i++) {
       var parent = matches[i];
-      outer:
-      while (parent && parent != document.body) {
+      outer: 
+      while (parent && parent != document) {
         for (var j = 0; j < context.length; j++)
           if (context[j] == parent) {
             filtered.push(matches[i]);
@@ -157,9 +188,7 @@
           }
         parent = parent.parentNode;
       }
-    }
-    
-    return filtered;
+    } */
   }
   
   /* 
@@ -246,9 +275,9 @@
         // check if it is a template or not
         if (typeof structure == 'string')
           self.renderTemplate(structure, null, options, write, complete);
-        
+        else
         // otherwise just render
-        self.renderItem(structure, { global: options.global }, write, complete);
+          self.renderItem(structure, { global: options.global }, write, complete);
       }
     }
   
@@ -355,14 +384,24 @@
       return complete(els);
 
     var completedRegions = 0;
+
+    var clone = function(o) {
+      var _o = {};
+      for (var p in o)
+        _o[p] = o[p];
+      return _o;
+    }
+
     for (var i = 0; i < regions.length; i++)
       (function(region, regionNode) {
         var regionStructure = (component && component[region]) || options[region];
         
         // check if the region is flat in els
         var regionIndex = els.indexOf(regionNode);
-        
-        $z.render.renderItem(regionStructure, options, function(_els) {
+
+        // clone the options if it is a render component
+        // all other region forms are compatible with reference options in the region
+        $z.render.renderItem(regionStructure, (regionStructure && regionStructure.render) ? clone(options) : options, function(_els) {
           var buffer = $z.render.Buffer();
           buffer.write(_els);
           if (buffer.container)
@@ -385,6 +424,16 @@
       })(regions[i], regionNodes[regions[i]]);
   }
   
+
+  if ($z.fn)
+    $z.fn.STOP_FIRST_DEFINED = $z.fn.STOP_FIRST_DEFINED || function(self, args, fns) {
+      var output = fns[0].apply(self, args);
+      if (output !== 'undefined')
+        return;
+      for (var i = 1; i < fns.length; i++)
+        fns[i].apply(self, args);
+    }
+
   $z.render.renderComponent = function(component, options, write, complete) {
     // populate default options
     if (component.options)
@@ -398,6 +447,9 @@
     var render = function() {
       
       options.type = options.type || component.type;
+
+      if (options.type && options.type.substr(0, 1).toUpperCase() != options.type.substr(0, 1))
+        throw 'Type names must always start with an uppercase letter.';
       
       // attach vars:
       // piped options - calculated after labelling
@@ -413,7 +465,7 @@
         
         // label component if labels provided
         if (_id) {
-          if ($z._elements[_id])
+          if ($z._components[_id])
             throw 'Id ' + _id + ' already defined!';
           els[0].id = _id;
         }
@@ -432,7 +484,7 @@
         // enforce labelling
         if (_id === undefined) {
           _id = 'z' + $z._nextComponentId++;
-          if ($z._elements[_id])
+          if ($z._components[_id])
             throw 'Id ' + _id + ' already has an attachment defined!';
           els[0].id = _id;
         }
@@ -440,18 +492,16 @@
           if (!els[0].getAttribute(typeAttr))
             els[0].setAttribute(typeAttr, (_type = ''));
         }
-          
-        $z._elements[_id] = els;
         
+        if (component.pipe === true)
+          component.pipe = function(o) { return o }
+
         var _options = component.pipe ? component.pipe(options) || {} : null;
         if (_options)
           _options.global = options.global;
         
         var registerController = function(controllerFunction) {
-          if (controllerFunction.length == 1 && !_options)
-            controller = controllerFunction(els);
-          else
-            controller = controllerFunction(els, _options || { global: options.global });
+          controller = controllerFunction(els[0], _options || { global: options.global });
 
           if (!controller)
             return complete();
@@ -460,21 +510,15 @@
 
           // if we have zoe, use the STOP_FIRST_DEFINED chain
           if (dispose && $z.fn) {
-            var stop_first_defined = $z.fn.STOP_FIRST_DEFINED = $z.fn.STOP_FIRST_DEFINED || function(self, args, fns) {
-              var output = fns[0].apply(self, args);
-              if (output !== 'undefined')
-                return;
-              for (var i = 1; i < fns.length; i++)
-                fns[i].apply(self, args);
-            }
-            if (dispose.constructor = $z.fn)
-              dispose.run = stop_first_defined;
+            if (dispose.constructor == $z.fn)
+              dispose.run = $z.fn.STOP_FIRST_DEFINED;
             else
-              dispose = $z.fn([dispose], stop_first_defined);
+              dispose = $z.fn([dispose], $z.fn.STOP_FIRST_DEFINED);
             dispose.first(function(system) {
               if (!system)
                 return $z.dispose(els);
             });
+            controller.dispose = dispose;
           }
           // no zoe -> create manually
           else {
@@ -486,7 +530,7 @@
             }
           }
             
-          $z._controllers[_id] = controller;
+          $z._components[_id] = controller;
             
           complete();
         }
@@ -653,48 +697,26 @@
   
 
   /*
-   * $z.getElements
-   * Given any component id or controller instance object, return its DOM elements
+   * $z.getElement
+   * Given any component id or controller instance object, return its DOM element
    */
-  $z.getElements = function(com) {
+  $z.getElement = function(com) {
     if (typeof com == 'string')
-      return $z._elements[com];
-    for (var controller in $z._controllers)
-      if ($z._controllers[controller] == com)
-        return $z._elements[controller];
+      return document.getElementById(com);
+    for (var id in $z._components)
+      if ($z._components[id] == com)
+        return document.getElementById(id);
   }
   /*
    * $z.getComponent
    * Given any html element, find the component responsible for its management
    */
   $z.getComponent = function(el) {
-    if (el.nodeType !== 1) {
-      if (typeof el[0] == 'object' && el[0] !== null) {
-        if (el[0].nodeType !== 1)
-          return null;
-      
-        el = el[0];
-      }
-    }
-    
-    if ($z._controllers[el.id])
-      return $z._controllers[el.id];
+    if ($z._components[el.id])
+      return $z._components[el.id];
   
     if (!el.previousSibling && el.parentNode == document.body)
       return;
-    
-    //back track up components
-    var prevNode = el;
-    var com;
-    while (prevNode = prevNode.previousSibling) {
-      //if its a component, return if we fall under its cover
-      if ($z._controllers[prevNode.id]) {
-        var com = $z._elements[prevNode.id];
-        for (var i = 0; i < com.length; i++)
-          if (com[i] == el)
-            return $z._controllers[prevNode.id];
-      }
-    }
     
     //if not, go up to the parent node
     return $z.getComponent(el.parentNode);
@@ -703,46 +725,44 @@
   /*
    * $z.dispose
    *
-   * Given a dom element or array of dom elements, disposes of all components and sub components on those elements
+   * Given a dom element or array of elements, disposes of all components and sub components on the element
    *
-   * Removes the dom elements entirely
+   * Removes the dom element entirely
    *
    */
   
-  $z.dispose = function(els) {
-    if (els.nodeType)
-      els = els.childNodes;
-    
-    //find all components and run disposal hooks
-    var components = $z('*[]', els);
-    for (var i = 0; i < components.length; i++) {
-      var component = components[i];
-      // dynamic disposal
-      if (component && component.dispose && !component._disposed) {
-        component.dispose(true);
-        component._disposed = true;
-      }
-      // clear from register
-      for (var id in $z._controllers) {
-        if ($z._controllers[id] == component) {
-          delete $z._controllers[id];
-          delete $z._elements[id];
-          break;
-        }
-      }
-      // if static, clear from elements
-      for (var id in $z._elements) {
-        if ($z._elements[id] == component) {
-          delete $z._elements[id];
-          break;
-        }
-      }
+  var disposeComponent = function(component) {
+    if (component && component.dispose && !component._disposed) {
+      component.dispose(true);
+      component._disposed = true;
     }
+    for (var id in $z._components)
+      if ($z._components[id] == component) {
+        delete $z._components[id];
+        break;
+      }
+  }
+
+  $z.dispose = function(el) {
+    if (!el.nodeType && el.length) {
+      for (var i = el.length - 1; i >= 0; i--)
+        $z.dispose(el[i]);
+      return;
+    }
+
+    //add the element component itself if it is one
+    if (el.id && $z._components[el.id])
+      disposeComponent($z._components[el.id]);
+
+    //find all components and run disposal hooks
+    var components = $z('*', el);
+
+    for (var i = 0; i < components.length; i++)
+      disposeComponent(components[i]);
     
     //then remove the html elements
-    for (var i = els.length - 1; i >= 0; i--)
-      if (els[i].parentNode)
-        els[i].parentNode.removeChild(els[i]);
+    if (el.parentNode)
+      el.parentNode.removeChild(el);
   }
   
   return $z;
