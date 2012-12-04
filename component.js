@@ -23,7 +23,7 @@
    *
    */
   return {
-    _implement: [zoe.Constructor],
+    _implement: [zoe.Constructor, zoe.InstanceChains],
     
     _extend: {
       'options': 'APPEND',
