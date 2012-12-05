@@ -510,7 +510,7 @@
 
           // if we have zoe, use the STOP_FIRST_DEFINED chain
           if (dispose && $z.fn) {
-            if (dispose.constructor == $z.fn)
+              if (dispose.constructor == $z.fn && controller.hasOwnProperty && controller.hasOwnProperty(dispose))
               dispose.run = $z.fn.STOP_FIRST_DEFINED;
             else
               dispose = $z.fn([dispose], $z.fn.STOP_FIRST_DEFINED);
