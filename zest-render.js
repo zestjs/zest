@@ -673,7 +673,7 @@
       modules = requirejs.s.contexts[c].defined;
       for (var curId in modules)
         if (modules[curId] == $) {
-          requireContext = c;
+          requireContext = requirejs.s.contexts[c];
           break findContext;
         }
     }
