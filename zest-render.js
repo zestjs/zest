@@ -541,10 +541,18 @@
           // relative module ids
           var moduleId = $z.getModuleId(component);
           if (moduleId) {
+            // if a coffeescript file, make the map without loading the 'cs!' plugin
+            var isCoffee = false;
+            if (attachId.substr(0, 3) == 'cs!') {
+              isCoffee = true;
+              attachId = attachId.substr(3);
+            }
             // create the module map for the component
             var parentMap = requireContext.makeModuleMap(moduleId, null, false, false);
             // normalize the attachment id
             attachId = requireContext.makeModuleMap(attachId, parentMap, false, true).id;
+            if (isCoffee)
+              attachId = 'cs!' + attachId;
           }
           
           require([attachId], function(attachment) {
@@ -686,6 +694,8 @@
       if (module == null)
         return moduleId;
       for (var curId in modules) {
+        if (curId.substr(0, 9) == 'zest/com!')
+          continue;
         if (modules[curId] == module)
           moduleId = curId;
         else if (definitionMatching !== false && modules[curId] && module._definition == modules[curId])
