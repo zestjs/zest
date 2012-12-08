@@ -75,6 +75,9 @@ if (false) define({});
 
     $z._components[zid] = controller || el;
 
+    if (!controller)
+      return;
+
     var dispose = controller.dispose;
 
     if (dispose && $z.fn) {
