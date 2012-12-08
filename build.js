@@ -166,7 +166,7 @@ define(['module'], function(module) {
             var attachMap = curContext.makeModuleMap(component.attach, parentMap, false, true);
             callbackCnt++;
             //console.log('adding attachment ' + attachMap.prefix + '!' + attachMap.name);
-            buildLoad(attachMap.prefix + '!' + attachMap.name, req, renderCache, attachCache, true, callback);
+            buildLoad((attachMap.prefix ? attachMap.prefix + '!' : '') + attachMap.name, req, renderCache, attachCache, true, callback);
           }
 
           // add any style dependencies to the build if an attach build
