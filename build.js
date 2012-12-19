@@ -46,6 +46,7 @@ define(['module'], function(module) {
     // (must be called '_' to get non-evaluation of modules
     // and other nice r.js load goodness)
     buildContext = requirejs.s.newContext('_');
+    buildContext.nextTick = function(f) {f()}
 
     // name it and put it in the right place
     buildContext.contextName = 'zestBuild';
@@ -66,17 +67,31 @@ define(['module'], function(module) {
     // this is a fully-evaluating hidden context
     renderConfig.context = 'zestRender';
     renderReq = requirejs.config(renderConfig);
+    requirejs.s.contexts.zestRender.nextTick = function(f) {f()}
 
     // create the build context require function
     buildReq = buildContext.makeRequire(null, {
       enableBuildCallback: true,
       skipMap: false
     });
+    //requirejs.s.contexts.zestBuild.needFullExec.cs = true;
+    console.log(requirejs.s.contexts.zestBuild);
+    console.log('loading test module');
+    /* buildReq(['csp!test'], function() {
+      console.log('loaded test module');
+      s = r / 3;
+    }, function(err) {
+      console.log('error loading test module');
+      s = r / 3;
+    });
+    console.log('next'); */
 
     // trace all dependencies for the build context
     depMap = {};
     var resourceLoad = requirejs.onResourceLoad;
     requirejs.onResourceLoad = function(context, map, depArray) {
+      console.log('resource load ' + map.id);
+      console.log(context.needFullExec);
       if (context != buildContext) {
         if (resourceLoad)
           resourceLoad(context, map, depArray);
@@ -107,10 +122,20 @@ define(['module'], function(module) {
   var curContext = requirejs.s.contexts.build;
 
   var buildLoad = function(moduleId, req, renderCache, attachCache, renderBuild, done) {
+
+    buildReq(['csp!test'], function() {
+      console.log('loaded test module');
+      s = r / 3;
+    }, function(err) {
+      console.log('error loading test module');
+      s = r / 3;
+    });
+    console.log('next');
+
     if (renderCache[moduleId] || (attachCache[moduleId] && !renderBuild))
       return done();
 
-    //console.log('Building ' + moduleId + ' for ' + (renderBuild ? 'render.' : 'attach.'));
+    // console.log('Building ' + moduleId + ' for ' + (renderBuild ? 'render.' : 'attach.'));
 
     // a load completion system
     var callbackCnt = 0;
@@ -142,30 +167,29 @@ define(['module'], function(module) {
     // note that we don't actually evaluate the module
     // also this trace is in a separate context so 
     // we dont add anything to the build doing this
+    console.log('build req: ' + moduleId);
     buildReq([moduleId], function() {
+      console.log('build req complete');
       // get dependency array
-      var deps = depMap[moduleId.substr(0, 3) == 'cs!' ? moduleId.substr(3) : moduleId];
+      var deps = (depMap[moduleId.substr(0, 3) == 'cs!' ? moduleId.substr(3) : moduleId]) || [];
 
       // check if the module is a marked render component for build separation
       var parentMap = curContext.makeModuleMap(moduleId, null);
       if (parentMap.prefix == 'zest/com') {
         
         // get the traced dependency list
-        deps = depMap[parentMap.name.substr(0, 3) == 'cs!' ? parentMap.name.substr(3) : parentMap.name];
+        deps = (depMap[parentMap.name.substr(0, 3) == 'cs!' ? parentMap.name.substr(3) : parentMap.name]) || [];
 
         // load the render component in the loading hidden context
         callbackCnt++;
         renderReq([parentMap.name], function(component) {
-          if (!component.render)
-            throw 'com! is only used on render components.';
-
           parentMap = curContext.makeModuleMap(parentMap.name, null, true, false);
 
           // include any separate attach module as a render build
           if (typeof component.attach == 'string') {
             var attachMap = curContext.makeModuleMap(component.attach, parentMap, false, true);
             callbackCnt++;
-            //console.log('adding attachment ' + attachMap.prefix + '!' + attachMap.name);
+            console.log('adding attachment ' + attachMap.prefix + '!' + attachMap.name);
             buildLoad((attachMap.prefix ? attachMap.prefix + '!' : '') + attachMap.name, req, renderCache, attachCache, true, callback);
           }
 
@@ -177,7 +201,7 @@ define(['module'], function(module) {
               if (dep.prefix == 'require-css/css' || dep.prefix == 'require-less/less') {
                 // redo the map to ensure normalized
                 dep = buildContext.makeModuleMap(dep.originalName, parentMap, false, true);
-                //console.log('adding style ' + dep.id);
+                console.log('adding style ' + dep.id);
                 callbackCnt++;
                 req([dep.id], callback);
                 continue;
