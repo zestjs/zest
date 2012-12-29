@@ -102,11 +102,14 @@
     // run the standard selector
     var matches = $z.$(standardSelector, context);
 
+    // clone the array because otherwise immutable
+    var outMatches = [];
+
     // convert the matches into a list of components
     for (var i = 0; i < matches.length; i++)
-      matches[i] = $z._components[matches[i].id] || matches[i];
+      outMatches[i] = $z._components[matches[i].id] || matches[i];
 
-    return matches;
+    return outMatches;
   }
 
   $z.select = function(componentSelector, context) {
@@ -490,7 +493,7 @@
         }
         if (_type === undefined) {
           if (!els[0].getAttribute(typeAttr))
-            els[0].setAttribute(typeAttr, (_type = ''));
+            els[0].setAttribute(typeAttr, (_type = $z.getModuleId(component).split('/').pop()));
         }
         
         if (component.pipe === true)

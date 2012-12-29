@@ -26,14 +26,14 @@
     _implement: [zoe.Constructor, zoe.InstanceChains],
     
     _extend: {
-      'options': 'APPEND',
+      'options': 'DAPPEND',
       'type': 'REPLACE',
-      'pipe': zoe.fn.executeReduce(function(){ return {} }, function(out1, out2) {
+      'pipe': zoe.extend.makeChain(zoe.fn.executeReduce(function() { return {} }, function(out1, out2) {
         return zoe.extend(out1, out2, {
           '*': 'REPLACE',
           'global': 'APPEND'
         });
-      }),
+      })),
       'load': zoe.extend.makeChain('ASYNC')
     },
 
