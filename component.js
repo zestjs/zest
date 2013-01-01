@@ -30,6 +30,7 @@
       'type': 'REPLACE',
       'pipe': zoe.extend.makeChain(function(self, args, fns) {
         var o = {};
+        var p = [];
         for (var i = 0, var len = fns.length; i < len; i++) {
           var fn = fns[i];
           if (typeof fn == 'function')

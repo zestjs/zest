@@ -499,6 +499,15 @@
         if (component.pipe === true)
           component.pipe = function(o) { return o }
 
+        if (component.pipe instanceof Array) {
+          var p = component.pipe;
+          var _o = {};
+          component.pipe = function(o) {
+            for (var i = 0; i < p.length; i++)
+              _o[p[i]] = o[p[i]];
+          }
+        }
+
         var _options = component.pipe ? component.pipe(options) || {} : null;
         if (_options)
           _options.global = options.global;
