@@ -324,7 +324,7 @@
     template = template.trim();
     
     // Find all instances of '{`regionName`}'
-    var regions = template.match(/\{\`\w+\`\}/g);
+    var regions = template.match(/\{\`\w+\`\}|\{\[\w+\]\}/g);
     
     // map the region replacements into placeholder divs to pick up
     if (regions)
@@ -576,11 +576,21 @@
           structure = structure.call(component, options);
           if (typeof structure == 'string')
             self.renderTemplate(structure, component, options, write, renderAttach);
+          else if (component.attach) {
+              // dynamic compound component -> simple template shorthand
+            component.main = structure;
+            self.renderTemplate('<div>{[main]}</div>', component, options, write, renderAttach);
+          }
           else
             self.renderItem(structure, { global: options.global }, write, renderAttach);
         }
         else if (typeof structure == 'string')
           self.renderTemplate(structure, component, options, write, renderAttach);
+        else if (component.attach) {
+          // dynamic compound component -> simple template shorthand
+          component.main = structure;
+          self.renderTemplate('<div>{[main]}</div>', component, options, write, renderAttach);
+        }
         else
           self.renderItem(structure, options, write, renderAttach);
       }

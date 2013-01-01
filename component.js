@@ -28,7 +28,22 @@
     _extend: {
       'options': 'DAPPEND',
       'type': 'REPLACE',
-      'pipe': zoe.extend.makeChain(zoe.fn.executeReduce(function() { return {} }, function(out1, out2) {
+      'pipe': zoe.extend.makeChain(function(self, args, fns) {
+        var o = {};
+        for (var i = 0, var len = fns.length; i < len; i++) {
+          var fn = fns[i];
+          if (typeof fn == 'function')
+            zoe.extend(o, fn.apply(self, args), {
+              '*': 'REPLACE',
+              'global': 'APPEND'
+            });
+          else if (fn instanceof Array)
+            for (var j = 0; j < fn.length; j++)
+              o[fn[j]] = args[0][fn[j]];
+        }
+        return o;
+      }),
+      zoe.fn.executeReduce(function() { return {} }, function(out1, out2) {
         return zoe.extend(out1, out2, {
           '*': 'REPLACE',
           'global': 'APPEND'
