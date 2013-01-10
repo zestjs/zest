@@ -8,7 +8,7 @@
       "require-inline": "guybedford/require-inline/master",
       "require-css": "guybedford/require-css/master",
       "zoe": "https://raw.github.com/zestjs/zoe/master/zoe.js",
-      "require-coffee": "jrburke/require-coffee/master"
+      "require-coffee": "guybedford/require-coffee/master"
     }
   }
 }

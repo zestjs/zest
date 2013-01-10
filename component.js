@@ -31,7 +31,7 @@
       'pipe': zoe.extend.makeChain(function(self, args, fns) {
         var o = {};
         var p = [];
-        for (var i = 0, var len = fns.length; i < len; i++) {
+        for (var i = 0, len = fns.length; i < len; i++) {
           var fn = fns[i];
           if (typeof fn == 'function')
             zoe.extend(o, fn.apply(self, args), {
@@ -44,12 +44,14 @@
         }
         return o;
       }),
-      zoe.fn.executeReduce(function() { return {} }, function(out1, out2) {
-        return zoe.extend(out1, out2, {
-          '*': 'REPLACE',
-          'global': 'APPEND'
-        });
-      })),
+      'class': function(a, b) {
+        a = a || '';
+        if (a instanceof Array)
+          a = a.join(' ');
+        if (b instanceof Array)
+          b = b.join(' ');
+        return a + b;
+      },
       'load': zoe.extend.makeChain('ASYNC')
     },
 

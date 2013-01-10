@@ -317,6 +317,22 @@
     next();
   }
   
+
+  /*
+   * Dotted get property function.
+   *
+   * eg 'my.property' from { my: { property: 'hello' } } returns 'hello'
+   */
+  var getProperty = function(name, obj) {
+    var parts = name.split('.');
+    if (parts.length > 1) {
+      var curProperty = parts.shift();
+      return obj[curProperty] ? getProperty(parts.join('.'), obj[curProperty]) : undefined;
+    }
+    else
+      return obj[name];
+  }
+
   // passing component allows the region to be checked from the component first
   $z.render.renderTemplate = function(template, component, options, write, complete) {
     var els;
@@ -324,7 +340,7 @@
     template = template.trim();
     
     // Find all instances of '{`regionName`}'
-    var regions = template.match(/\{\`\w+\`\}|\{\[\w+\]\}/g);
+    var regions = template.match(/\{\`[\w\.]+\`\}|\{\[[\w\.]+\]\}/g);
     
     // map the region replacements into placeholder divs to pick up
     if (regions)
@@ -345,7 +361,7 @@
         if (parentTag == 'tbody')
           placeholderTag = 'tr';
           
-        template = template.replace(region, '<' + placeholderTag + ' style="display: none;" region-placeholder=' + regionName + '></' + placeholderTag + '>');
+        template = template.replace(region, '<' + placeholderTag + ' style="display: none;" region-placeholder="' + regionName + '"></' + placeholderTag + '>');
         delete region;
       }
     
@@ -367,7 +383,7 @@
             break;
           }
           if (node.nodeType == 1) {
-            var matches = $('[region-placeholder=' + region + ']', node);
+            var matches = $('[region-placeholder="' + region + '"]', node);
             if (matches.length > 0) {
               regionNode = matches[0];
               break;
@@ -397,7 +413,7 @@
 
     for (var i = 0; i < regions.length; i++)
       (function(region, regionNode) {
-        var regionStructure = (component && component[region]) || options[region];
+        var regionStructure = (component && getProperty(region, component)) || getProperty(region, options);
         
         // check if the region is flat in els
         var regionIndex = els.indexOf(regionNode);
@@ -460,9 +476,11 @@
       
       var _id = options.id;
       var _type = options.type;
+      var _class = component['class'] instanceof Array ? component['class'].join(' ') : component['class'];
       
       delete options.id;
       delete options.type;
+      delete options['class'];
       
       var renderAttach = function(els) {
         
@@ -475,6 +493,12 @@
         if (_type) {
           if (!els[0].getAttribute(typeAttr))
             els[0].setAttribute(typeAttr, _type);
+        }
+        if (_class) {
+          if (els[0].className)
+            els[0].className = ' ' + _class;
+          else
+            els[0].className = _class;
         }
         
         if (!component.attach)
