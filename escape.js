@@ -27,7 +27,7 @@
   esc.num = function(text, nanValue) {
     var num = parseFloat(text);
     if (isNaN(num))
-      return nanValue;
+      return nanValue || 0;
     else
       return num + '';
   }

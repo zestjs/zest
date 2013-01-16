@@ -759,10 +759,13 @@
   $z.getElement = function(com) {
     if (typeof com == 'string')
       return document.getElementById(com);
+    if (com.el)
+      return com.el;
     for (var id in $z._components)
       if ($z._components[id] == com)
         return document.getElementById(id);
   }
+
   /*
    * $z.getComponent
    * Given any html element, find the component responsible for its management

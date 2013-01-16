@@ -63,6 +63,7 @@
     },
     
     construct: function(el, o) {
+      this.el = el;
       this.o = o;
     },
     
