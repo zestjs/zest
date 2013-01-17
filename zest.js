@@ -25,6 +25,7 @@
  * http://zestjs.org
  * 
  */
+// this is pending https://github.com/jrburke/r.js/issues/353
 require.config({
   map: {
     '*': {

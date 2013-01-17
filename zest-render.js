@@ -724,7 +724,6 @@
   //first get the current context by finding selector
   if (typeof requirejs != 'undefined') {
     // ensure selector module is defined
-    req('selector');
     var requireContext = null;
     var modules;
     findContext: for (var c in requirejs.s.contexts) {
