@@ -21,9 +21,6 @@
     factory(null, window.$ || document.querySelectorAll, null);
 }(this, function(req, $, module) {
 
-  if (req)
-    req('selector');
-  
   var config = module && module.config();
   
   var typeAttr = (config && config.typeAttribute) || 'component';
