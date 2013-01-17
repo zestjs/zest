@@ -228,7 +228,7 @@
     var _complete = function() {
       $z.render.Buffer(container.length ? container[0] : container).write(els);
       if (complete)
-        complete();
+        complete.apply(this, arguments);
     }
     
     // the only time a string is a moduleId
@@ -568,7 +568,7 @@
             
           $z._components[_id] = controller;
             
-          complete();
+          complete(controller);
         }
         
         if (typeof component.attach === 'string') {
