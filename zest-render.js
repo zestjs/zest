@@ -23,7 +23,7 @@
   
   var config = typeof module != 'undefined' && module.config();
   
-  var typeAttr = (typeof config != 'undefined' && config.typeAttribute) || 'component';
+  var typeAttr = (config && config.typeAttribute) || 'component';
   
   var $z = function() { return $z.selectAll.apply(this, arguments); }
   
