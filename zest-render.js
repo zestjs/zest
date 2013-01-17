@@ -220,13 +220,20 @@
       container = options;
       options = {};
     }
+    container = container.length ? container[0] : container;
     options = options || {};
     options.global = options.global || $z._global;
 
     var els = $z.render.Buffer();
     
     var _complete = function() {
-      $z.render.Buffer(container.length ? container[0] : container).write(els);
+      $z.render.Buffer(container).write(els);
+      // run init methods
+      var components = $z('*', container);
+      for (var i = 0; i < components.length; i++)
+        if (typeof components[i].init == 'function')
+          components[i].init();
+      
       if (complete)
         complete.apply(this, arguments);
     }

@@ -97,6 +97,9 @@ if (false) define({});
         if (dispose)
           dispose();
       }
+
+    if (typeof controller.init == 'function')
+      controller.init();
   });
   
   // remove the attach script itself
