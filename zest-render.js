@@ -19,7 +19,10 @@
     define(['require', 'selector', 'module'], factory);
   else
     factory(null, window.$ || document.querySelectorAll, null);
-}(this, function(require, $, module) {
+}(this, function(req, $, module) {
+
+  if (req)
+    req('selector');
   
   var config = module && module.config();
   
@@ -259,7 +262,7 @@
     // string templates
     else if (typeof structure == 'string')
       if (structure.substr(0, 1) == '@')
-        require([structure.substr(1)], function(structure) {
+        req([structure.substr(1)], function(structure) {
           self.renderItem(structure, options, write, complete);
         });
       else
@@ -591,7 +594,7 @@
               attachId = 'cs!' + attachId;
           }
           
-          require([attachId], function(attachment) {
+          req([attachId], function(attachment) {
             registerController(attachment);
           });
         }
@@ -601,7 +604,7 @@
 
       var renderFunctional = function(structure) {
         if (typeof structure == 'string' && structure.substr(0, 1) == '@') {
-          require([structure.substr(1)], renderFunctional);
+          req([structure.substr(1)], renderFunctional);
           return;
         }
         // functional
@@ -721,7 +724,7 @@
   //first get the current context by finding selector
   if (typeof requirejs != 'undefined') {
     // ensure selector module is defined
-    require('selector');
+    req('selector');
     var requireContext = null;
     var modules;
     findContext: for (var c in requirejs.s.contexts) {
