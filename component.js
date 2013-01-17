@@ -59,22 +59,23 @@
 
     _integrate: function(def) {
       if (def.construct || def.prototype)
-        this.attach = this.attach || function(el, o) {
-          return new this(el, o, true);
+        this.attach = this.attach || function(el, o, register) {
+          if (!register)
+            return new this(el, o);
+
+          // helper for attachment-only components to also be registered
+          if (!el.getAttribute('component'))
+            el.setAttribute('component', '');
+          el.id = el.id || $z._nextComponentId++;
+
+          return ($z._components[el.id] = new this(el, o));
+
         }
     },
     
     construct: function(el, o, system) {
       this.el = el;
       this.o = o;
-
-      // helper for attachment-only components to also be registered
-      if (!system) {
-        if (!el.getAttribute('component'))
-          el.setAttribute('component', '');
-        this.id = this.id || $z._nextComponentId++;
-        $z._components[this.id] = this;
-      }
     },
     
     prototype: {
