@@ -25,6 +25,14 @@
  * http://zestjs.org
  * 
  */
+require.config({
+  map: {
+    '*': {
+      'is': 'require-is/is',
+      'css': 'require-css/css'
+    }
+  }
+});
 define(['zoe', 'is!browser?./zest-render', './escape', './component', 'css'], function(zoe, $z, escape, Component) {
   $z = $z || {};
   //component adds zoe onto $z
