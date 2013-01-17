@@ -21,7 +21,7 @@
     factory(null, window.$ || document.querySelectorAll, null);
 }(this, function(require, $, module) {
   
-  var config = typeof module != 'undefined' && module.config();
+  var config = module && module.config();
   
   var typeAttr = (config && config.typeAttribute) || 'component';
   
