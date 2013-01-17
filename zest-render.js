@@ -233,7 +233,7 @@
       for (var i = 0; i < components.length; i++)
         if (typeof components[i].init == 'function')
           components[i].init();
-      
+
       if (complete)
         complete.apply(this, arguments);
     }
@@ -523,8 +523,11 @@
           els[0].id = _id;
         }
         if (_type === undefined) {
-          if (!els[0].getAttribute(typeAttr))
-            els[0].setAttribute(typeAttr, (_type = $z.getModuleId(component).split('/').pop()));
+          if (!els[0].getAttribute(typeAttr)) {
+            var moduleId = $z.getModuleId(component);
+            if (moduleId)
+              els[0].setAttribute(typeAttr, (_type = moduleId.split('/').pop()));
+          }
         }
         
         if (component.pipe === true)
