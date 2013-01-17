@@ -525,8 +525,7 @@
         if (_type === undefined) {
           if (!els[0].getAttribute(typeAttr)) {
             var moduleId = $z.getModuleId(component);
-            if (moduleId)
-              els[0].setAttribute(typeAttr, (_type = moduleId.split('/').pop()));
+            els[0].setAttribute(typeAttr, moduleId ? (_type = moduleId.split('/').pop()) : '');
           }
         }
         
