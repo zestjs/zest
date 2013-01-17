@@ -41,6 +41,8 @@
           else if (fn instanceof Array)
             for (var j = 0; j < fn.length; j++)
               o[fn[j]] = args[0][fn[j]];
+          else if (fn === true)
+            return args[0];
         }
         return o;
       }),
