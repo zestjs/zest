@@ -70,8 +70,8 @@
 
       // helper for attachment-only components to also be registered
       if (!system) {
-        if (!this.getAttribute('component'))
-          this.setAttribute('component', '');
+        if (!el.getAttribute('component'))
+          el.setAttribute('component', '');
         this.id = this.id || $z._nextComponentId++;
         $z._components[this.id] = this;
       }
