@@ -75,7 +75,7 @@
     _built: function() {
       if (!this.render)
         this.pipe = this.pipe || true;
-    }
+    },
     
     construct: function(el, o, system) {
       this.el = el;
