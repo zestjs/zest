@@ -69,9 +69,13 @@
           el.id = el.id || $z._nextComponentId++;
 
           return ($z._components[el.id] = new this(el, o));
-
         }
     },
+
+    _built: function() {
+      if (!this.render)
+        this.pipe = this.pipe || true;
+    }
     
     construct: function(el, o, system) {
       this.el = el;
