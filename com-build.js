@@ -16,6 +16,13 @@ define(function() {
     if (context != buildContext)
       return resourceLoad.call(this, context, map, depArray);
 
+    // note css
+    if (map.prefix == 'require-css/css' || map.prefix == 'require-less/less') {
+      if (requirejs.onZestAttachResource)
+        requirejs.onZestAttachResource(map.id);
+      return resourceLoad.call(this, context, map, depArray);
+    }
+
     // load file and detect if it has an attachment module - if so, add it in
     var fileUrl;
     if (!map.prefix)
@@ -41,9 +48,11 @@ define(function() {
 
     var attachMatch = contents.match(attachRegEx);
     if (attachMatch) {
-
       // include the attachment in the build
       var attachId = context.makeModuleMap(attachMatch[3], map, true, true).id;
+      if (requirejs.onZestAttachResource)
+        requirejs.onZestAttachResource(attachId);
+      
       requirejs([attachId]);
       resourceLoad.call(this, context, map, depArray);
     }
