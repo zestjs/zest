@@ -16,7 +16,7 @@
  */
 (function (root, factory) {
   if (typeof define === 'function' && define.amd)
-    define(['require', 'selector', 'module'], factory);
+    define(['require', 'selector', 'module', requirejs.optimize ? './com' : ''], factory);
   else
     factory(null, window.$ || document.querySelectorAll, null);
 }(this, function(req, $, module) {
