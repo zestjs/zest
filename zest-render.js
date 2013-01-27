@@ -527,7 +527,7 @@
               _type = _type[0].toUpperCase() + _type.substr(1);
             }
             else
-              els[0].setAttribute(typeAttr, );
+              els[0].setAttribute(typeAttr, '');
           }
         }
         
