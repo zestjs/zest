@@ -1,5 +1,7 @@
 /*
- * Copyright 2013 Guy Bedford
+ * ZestJS
+ * http://zestjs.org
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -25,15 +27,6 @@
  * http://zestjs.org
  * 
  */
-// this is pending https://github.com/jrburke/r.js/issues/353
-require.config({
-  map: {
-    '*': {
-      'is': 'require-is/is',
-      'css': 'require-css/css'
-    }
-  }
-});
 define(['zoe', 'is!browser?./zest-render', './escape', './component', 'css'], function(zoe, $z, escape, Component) {
   $z = $z || {};
   //component adds zoe onto $z
