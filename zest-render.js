@@ -471,22 +471,19 @@
     var self = this;
     
     var render = function() {
-      
-      options.type = options.type || component.type;
 
-      if (options.type && options.type.substr(0, 1).toUpperCase() != options.type.substr(0, 1))
-        throw 'Type names must always start with an uppercase letter.';
-      
       // attach vars:
       // piped options - calculated after labelling
       var _options;
       
       var _id = options.id;
-      var _type = options.type;
+      var _type = component.type;
       var _class = component['class'] instanceof Array ? component['class'].join(' ') : component['class'];
+
+      if (_type && _type.substr(0, 1).toUpperCase() != _type.substr(0, 1))
+        throw 'Type names must always start with an uppercase letter.';
       
       delete options.id;
-      delete options.type;
       delete options['class'];
       
       var renderAttach = function(els) {
@@ -525,7 +522,12 @@
         if (_type === undefined) {
           if (!els[0].getAttribute(typeAttr)) {
             var moduleId = $z.getModuleId(component);
-            els[0].setAttribute(typeAttr, moduleId ? (_type = moduleId.split('/').pop()) : '');
+            if (moduleId) {
+              _type = moduleId.split('/').pop();
+              _type = _type[0].toUpperCase() + _type.substr(1);
+            }
+            else
+              els[0].setAttribute(typeAttr, );
           }
         }
         
@@ -749,8 +751,6 @@
       if (module == null)
         return moduleId;
       for (var curId in modules) {
-        if (curId.substr(0, 9) == 'zest/com!')
-          continue;
         if (modules[curId] == module)
           moduleId = curId;
         else if (definitionMatching !== false && modules[curId] && module._definition == modules[curId])
