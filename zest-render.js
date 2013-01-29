@@ -107,7 +107,7 @@
 
     // convert the matches into a list of components
     for (var i = 0; i < matches.length; i++)
-      outMatches[i] = $z._components[matches[i].id] || matches[i];
+      outMatches[i] = $z.getComponent(matches[i].id) || matches[i];
 
     return outMatches;
   }
@@ -778,10 +778,19 @@
   /*
    * $z.getComponent
    * Given any html element, find the component responsible for its management
+   * Also works given a component id arg
    */
   $z.getComponent = function(el) {
-    if ($z._components[el.id])
-      return $z._components[el.id];
+    if (typeof el == 'string') {
+      var c = $z._components[el.id];
+      if (c === true)
+        c = $z._components[el.id] = $z.fn();
+      return c;
+    }
+
+    var c = $z.getComponent(el.id);
+    if (c)
+      return c;
   
     if (!el.previousSibling && el.parentNode == document.body)
       return;

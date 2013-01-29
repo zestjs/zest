@@ -63,43 +63,55 @@ if (false) define({});
   //  throw 'Unable to detect component template for ' + zid + '. Malformed HTML.';
   
   var requireInlineUrl = require.toUrl('require-inline');
-  
-  // require zest and the component id to do the enhancements
-  require(['zest', controllerId, 'json/json'], function($z, controllerFunction, JSON) {
+
+  require(['zest'], function($z) {
+
+    // note down that there is a controller for this zid. Any attachment attempts then given a callback.
     if ($z._nextComponentId <= zid.substr(1))
-      $z._nextComponentId = parseInt(zid.substr(1)) + 1;
+      $z.nextComponentId = parseInt(zid.substr(1)) + 1;
+    $z._components[zid] = true;
     
-    var attach = controllerFunction.attach ? controllerFunction.attach : controllerFunction;
-    
-    var controller = attach.call(controllerFunction, el, options || { global: $z._global });
+    // require zest and the component id to do the enhancements
+    require([controllerId, 'json/json'], function(controllerFunction, JSON) {
+      var attach = controllerFunction.attach ? controllerFunction.attach : controllerFunction;
+      
+      var controller = attach.call(controllerFunction, el, options || { global: $z._global });
 
-    $z._components[zid] = controller || el;
+      // store the callback in case some attach hooks have been added
+      var callback = $z._components[zid];
+      $z._components[zid] = controller || el;
 
-    if (!controller)
-      return;
+      if (!controller)
+        return;
 
-    var dispose = controller.dispose;
+      var dispose = controller.dispose;
 
-    if (dispose && $z.fn) {
-      if (dispose.constructor == $z.fn)
-        dispose.run = $z.fn.STOP_FIRST_DEFINED;
-      else
-        dispose = $z.fn([dispose], $z.fn.STOP_FIRST_DEFINED);
-      dispose.first(function(system) {
-        if (!system)
-          return $z.dispose(el);
-      })
-    }
-    else
-      controller.dispose = function(system) {
-        if (!system)
-          return $z.dispose(el);
-        if (dispose)
-          dispose();
+      if (dispose && $z.fn) {
+        if (dispose.constructor == $z.fn)
+          dispose.run = $z.fn.STOP_FIRST_DEFINED;
+        else
+          dispose = $z.fn([dispose], $z.fn.STOP_FIRST_DEFINED);
+        dispose.first(function(system) {
+          if (!system)
+            return $z.dispose(el);
+        })
       }
+      else
+        controller.dispose = function(system) {
+          if (!system)
+            return $z.dispose(el);
+          if (dispose)
+            dispose();
+        }
 
-    if (typeof controller.init == 'function')
-      controller.init();
+      if (typeof controller.init == 'function')
+        controller.init();
+
+      // if we have any callback hooks, run them now
+      if (callback && callback.constructor == $z.fn)
+        callback(controller);
+    });
+
   });
   
   // remove the attach script itself
