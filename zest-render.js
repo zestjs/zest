@@ -70,10 +70,16 @@
    * 
    */
   $z.selectAll = function(componentSelector, context) {
-    componentSelector = componentSelector || '*';
+    if (!componentSelector) {
+      var matches = [];
+      for (var c in $z._components)
+        matches.push(c);
+      return matches;
+    }
+
     context = context || $z.getElement(this) || document;
 
-    if (componentSelector.indexOf(',') != -1)
+    /* if (componentSelector.indexOf(',') != -1)
       throw 'Multiple component selection not currently supported.'
 
     var relationRegEx = /\s*[>+~]\s*|\s+/g;
@@ -88,7 +94,7 @@
     for (var i = 0; i < terms.length; i++) {
       // check each term for a type name starting with a capital letter
       var typeName;
-      if ((typeName = terms[i].match(/^[A-Z][^\.#:\[\*]*/))) {
+      if ((typeName = terms[i].match(/^[A-Z][^\.#:\[\*]* /))) {
         // replace the type name with '*[component="typeName"]'
         terms[i] = '*[' + typeAttr + '="' + typeName[0] + '"]' + terms[i].substr(typeName[0].length);
       }
@@ -98,9 +104,10 @@
 
     // trim the selector and ensure that the last item is always a component
     standardSelector = standardSelector.trim() + '[' + typeAttr + ']';
+    */ 
 
     // run the standard selector
-    var matches = $z.$(standardSelector, context);
+    var matches = $z.$(componentSelector, context);
 
     // clone the array because otherwise immutable
     var outMatches = [];
@@ -480,52 +487,68 @@
       var _type = component.type;
       var _class = (component.className || '') + (options.className && component.className ? ' ' + options.className : options.className || '');
 
+      if (_id === undefined && (component.attach || component.style)) {
+        _id = 'z' + $z._nextComponentId++;
+        options.id = _id;
+      }
+
+      if ($z._components[_id])
+        throw 'Id ' + _id + ' already has an attachment defined!';
+
       if (_type && _type.substr(0, 1).toUpperCase() != _type.substr(0, 1))
         throw 'Type names must always start with an uppercase letter.';
       
-      delete options.id;
-      
       var renderAttach = function(els) {
+        var el = els[0];
+
+        if (!el)
+          return complete();
+
         // label component if labels provided
         if (_id) {
-          if ($z._components[_id])
+          if (el.id != _id && $z._components[_id])
             throw 'Id ' + _id + ' already defined!';
-          els[0].id = _id;
+          el.id = _id;
         }
         if (_type) {
-          if (!els[0].getAttribute(typeAttr))
-            els[0].setAttribute(typeAttr, _type);
+          if (!el.getAttribute(typeAttr))
+            el.setAttribute(typeAttr, _type);
         }
         if (_class) {
-          if (els[0].className)
-            els[0].className += ' ' + _class;
+          if (el.className)
+            el.className += ' ' + _class;
           else
-            els[0].className = _class;
+            el.className = _class;
         }
+
+
+        // render style
+        if (component.style) {
+          var style = typeof component.style == 'function' ? component.style(options) : component.style;
+          var styleNode = document.createElement('style');
+          styleNode.type = 'text/css';
+          styleNode.setAttribute('data-zid', _id);
+          if (styleNode.styleSheet)
+            styleNode.styleSheet.cssText = style;
+          else
+            styleNode.appendChild(document.createTextNode(style));
+          el.parentNode.insertBefore(styleNode, el);
+        }
+
         
         if (!component.attach)
           return complete();
         
-        // attachment
-        if (els[0].id)
-          _id = els[0].id;
-        
         // enforce labelling
-        if (_id === undefined) {
-          _id = 'z' + $z._nextComponentId++;
-          if ($z._components[_id])
-            throw 'Id ' + _id + ' already has an attachment defined!';
-          els[0].id = _id;
-        }
         if (_type === undefined) {
-          if (!els[0].getAttribute(typeAttr)) {
+          if (!el.getAttribute(typeAttr)) {
             var moduleId = $z.getModuleId(component);
             if (moduleId) {
               _type = moduleId.split('/').pop();
               _type = _type[0].toUpperCase() + _type.substr(1);
             }
             else
-              els[0].setAttribute(typeAttr, '');
+              el.setAttribute(typeAttr, '');
           }
         }
         
@@ -775,26 +798,22 @@
 
   /*
    * $z.getComponent
-   * Given any html element, find the component responsible for its management
+   * Given a master HTML element, find its controller
    * Also works given a component id arg
    */
   $z.getComponent = function(el) {
     if (typeof el == 'string') {
-      var c = $z._components[el.id];
+      var c = $z._components[el];
       if (c === true)
-        c = $z._components[el.id] = $z.fn();
+        c = $z._components[el] = $z.fn();
       return c;
     }
 
     var c = $z.getComponent(el.id);
     if (c)
       return c;
-  
-    if (!el.previousSibling && el.parentNode == document.body)
-      return;
     
-    //if not, go up to the parent node
-    return $z.getComponent(el.parentNode);
+    return null;
   }
   
   /*
@@ -810,15 +829,22 @@
     if (component && component.dispose && !component._disposed) {
       component.dispose(true);
       component._disposed = true;
+      for (var id in $z._components)
+        if ($z._components[id] == component) {
+          // remove any style tag
+          var style = $('style[data-zid="' + id + '"]');
+          if (style && style[0]) {
+            style[0].parentNode.removeChild(style[0]);
+          }
+          delete $z._components[id];
+          break;
+        }
     }
-    for (var id in $z._components)
-      if ($z._components[id] == component) {
-        delete $z._components[id];
-        break;
-      }
   }
 
   $z.dispose = function(el) {
+    if (typeof el == 'string')
+      return $z.dispose($(el));
     if (!el.nodeType && el.length) {
       for (var i = el.length - 1; i >= 0; i--)
         $z.dispose(el[i]);
