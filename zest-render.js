@@ -478,13 +478,12 @@
       
       var _id = options.id;
       var _type = component.type;
-      var _class = component['class'] instanceof Array ? component['class'].join(' ') : component['class'];
+      var _class = component.className + (options.className ? ' ' + options.className);
 
       if (_type && _type.substr(0, 1).toUpperCase() != _type.substr(0, 1))
         throw 'Type names must always start with an uppercase letter.';
       
       delete options.id;
-      delete options['class'];
       
       var renderAttach = function(els) {
         

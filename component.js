@@ -46,13 +46,11 @@
         }
         return o;
       }),
-      'class': function(a, b) {
-        a = a || '';
-        if (a instanceof Array)
-          a = a.join(' ');
-        if (b instanceof Array)
-          b = b.join(' ');
-        return a + b;
+      'className': function(a, b) {
+        if (a)
+          return a + (b ? ' ' + b : '');
+        else
+          return a + (b || '');
       },
       'load': zoe.extend.makeChain('ASYNC')
     },
