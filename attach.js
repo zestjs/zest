@@ -68,7 +68,7 @@ if (false) define({});
 
     // note down that there is a controller for this zid. Any attachment attempts then given a callback.
     if ($z._nextComponentId <= zid.substr(1))
-      $z.nextComponentId = parseInt(zid.substr(1)) + 1;
+      $z._nextComponentId = parseInt(zid.substr(1)) + 1;
     $z._components[zid] = true;
     
     // require zest and the component id to do the enhancements
