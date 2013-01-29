@@ -317,7 +317,7 @@
         complete();
         return;
       }
-      self.renderItem(structure[i++], { global: options.global }, write, function() {
+      self.renderItem(structure[i++], { global: options.global }, write, function(els) {
         next();
       });
     }
@@ -433,7 +433,7 @@
           if (buffer.container)
             while (buffer.container.childNodes.length > 0) {
               if (regionIndex != -1)
-                els.splice(regionIndex, 0, buffer.container.childNodes[0]);
+                els.splice(regionIndex++, 0, buffer.container.childNodes[0]);
               regionNode.parentNode.insertBefore(buffer.container.childNodes[0], regionNode);          
             }
         }, function() {
@@ -478,7 +478,7 @@
       
       var _id = options.id;
       var _type = component.type;
-      var _class = component.className + (options.className && component.className ? ' ' + options.className : options.className || '');
+      var _class = (component.className || '') + (options.className && component.className ? ' ' + options.className : options.className || '');
 
       if (_type && _type.substr(0, 1).toUpperCase() != _type.substr(0, 1))
         throw 'Type names must always start with an uppercase letter.';
@@ -486,7 +486,6 @@
       delete options.id;
       
       var renderAttach = function(els) {
-        
         // label component if labels provided
         if (_id) {
           if ($z._components[_id])
@@ -499,7 +498,7 @@
         }
         if (_class) {
           if (els[0].className)
-            els[0].className = ' ' + _class;
+            els[0].className += ' ' + _class;
           else
             els[0].className = _class;
         }
