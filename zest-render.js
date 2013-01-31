@@ -143,7 +143,10 @@
       }
     }
 
-    return callbackCnt == 0 ? outMatches : undefined;
+    if (callback && callbackCnt == 0)
+      return callback(outMatches);
+    else
+      return selectOne ? outMatches[0] : outMatches;
   }
 
   $z.select = function(componentSelector, context, callback) {
