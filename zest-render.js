@@ -116,7 +116,7 @@
     var matches = $z.$(componentSelector, context);
 
     if (selectOne)
-      matches = [matches[0]];
+      matches = matches[0] ? [matches[0]] : [];
 
     // clone the array because otherwise immutable
     var outMatches = [];

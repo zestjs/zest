@@ -49,7 +49,7 @@
         return o;
       }),
       'load': zoe.extend.makeChain('ASYNC'),
-      'attach': 'REPLACE'
+      attach: zoe.extend.REPLACE
     },
 
     _integrate: function(def) {
