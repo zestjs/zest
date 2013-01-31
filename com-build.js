@@ -50,10 +50,16 @@ define(function() {
     if (attachMatch) {
       // include the attachment in the build
       var attachId = context.makeModuleMap(attachMatch[3], map, true, true).id;
-      if (requirejs.onZestAttachResource)
-        requirejs.onZestAttachResource(attachId);
       
-      requirejs([attachId]);
+      // in case of bad detection, fail gracefully
+      if (attachId.indexOf('!') != -1 || fs.existsSync(requirejs.toUrl(attachId))) {
+
+        if (requirejs.onZestAttachResource)
+          requirejs.onZestAttachResource(attachId);
+
+        requirejs([attachId]);
+      }
+
       resourceLoad.call(this, context, map, depArray);
     }
     else
