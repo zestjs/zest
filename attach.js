@@ -104,12 +104,12 @@ if (false) define({});
             dispose();
         }
 
-      if (typeof controller.init == 'function')
-        controller.init();
-
       // if we have any callback hooks, run them now
       if (callback && callback.constructor == $z.fn)
         callback(controller);
+
+      if (typeof controller.init == 'function')
+        controller.init();
     });
 
   });

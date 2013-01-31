@@ -27,7 +27,9 @@
     
     _extend: {
       'options': 'DAPPEND',
-      'type': 'REPLACE',
+      'className': function(a, b) {
+        return (a && b) ? (a + ' ' + b) : (a || b || '');
+      },
       'pipe': zoe.extend.makeChain(function(self, args, fns) {
         var o = {};
         var p = [];
@@ -46,28 +48,25 @@
         }
         return o;
       }),
-      'className': function(a, b) {
-        if (a)
-          return a + (b ? ' ' + b : '');
-        else
-          return a + (b || '');
-      },
-      'load': zoe.extend.makeChain('ASYNC')
+      'load': zoe.extend.makeChain('ASYNC'),
+      'attach': 'REPLACE'
     },
 
     _integrate: function(def) {
-      if (def.construct || def.prototype)
+      if (def.construct || def.prototype) {
+        var self = this;
         this.attach = this.attach || function(el, o, register) {
           if (!register)
-            return new this(el, o);
+            return new self(el, o);
 
           // helper for attachment-only components to also be registered
           if (!el.getAttribute('component'))
             el.setAttribute('component', '');
           el.id = el.id || $z._nextComponentId++;
 
-          return ($z._components[el.id] = new this(el, o));
+          return ($z._components[el.id] = new self(el, o));
         }
+      }
     },
 
     _built: function() {

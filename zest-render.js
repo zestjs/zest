@@ -69,12 +69,18 @@
    * component.$z = $z.$z
    * 
    */
-  $z.selectAll = function(componentSelector, context) {
+  $z.selectAll = function(componentSelector, context, callback, selectOne) {
     if (!componentSelector) {
       var matches = [];
       for (var c in $z._components)
         matches.push(c);
       return matches;
+    }
+
+    if (typeof context == 'function') {
+      selectOne = callback;
+      callback = context;
+      context = undefined;
     }
 
     context = context || $z.getElement(this) || document;
@@ -109,18 +115,39 @@
     // run the standard selector
     var matches = $z.$(componentSelector, context);
 
+    if (selectOne)
+      matches = [matches[0]];
+
     // clone the array because otherwise immutable
     var outMatches = [];
 
     // convert the matches into a list of components
-    for (var i = 0; i < matches.length; i++)
+    var callbackCnt = 0;
+    for (var i = 0; i < matches.length; i++) {
       outMatches[i] = $z.getComponent(matches[i].id) || matches[i];
 
-    return outMatches;
+      // provide asynchronous callback support for loading components
+      if (outMatches[i].constructor == $z.fn) {
+        callbackCnt++;
+        if (!callback)
+          throw 'Need to use an async selector callback - component hasn\'t attached yet!';
+        //make an 'i' closure
+        (function(i) {
+          outMatches[i].on(function(controller) {
+            callbackCnt--;
+            outMatches[i] = controller;
+            if (callbackCnt == 0)
+              callback(outMatches);
+          });
+        })(i);
+      }
+    }
+
+    return callbackCnt == 0 ? outMatches : undefined;
   }
 
-  $z.select = function(componentSelector, context) {
-    return $z.selectAll.call(this, componentSelector, context)[0];
+  $z.select = function(componentSelector, context, callback) {
+    return $z.selectAll(componentSelector, context, callback, true);
   }
   
   /*
@@ -499,7 +526,7 @@
         throw 'Type names must always start with an uppercase letter.';
       
       var renderAttach = function(els) {
-        var el = els[0];
+        var el = els && els[0];
 
         if (!el)
           return complete();
@@ -561,6 +588,7 @@
           component.pipe = function(o) {
             for (var i = 0; i < p.length; i++)
               _o[p[i]] = o[p[i]];
+            return _o;
           }
         }
 
@@ -569,7 +597,7 @@
           _options.global = options.global;
         
         var registerController = function(controllerFunction) {
-          controller = controllerFunction.call(component, els[0], _options || { global: options.global });
+          controller = new controllerFunction(els[0], _options || { global: options.global });
 
           if (!controller)
             return complete();
