@@ -73,12 +73,19 @@ if (false) define({});
     
     // require zest and the component id to do the enhancements
     require([controllerId, 'json/json'], function(controllerFunction, JSON) {
+      var callback = $z._components[zid];
+
+      // if disposed before attachment, skip attachment
+      if (callback === false) {
+        delete $z._components[zid];
+        return;
+      }
+
       var attach = controllerFunction.attach ? controllerFunction.attach : controllerFunction;
       
       var controller = attach.call(controllerFunction, el, options || { global: $z._global });
 
       // store the callback in case some attach hooks have been added
-      var callback = $z._components[zid];
       $z._components[zid] = controller || el;
 
       if (!controller)

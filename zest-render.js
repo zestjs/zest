@@ -127,10 +127,8 @@
       outMatches[i] = $z.getComponent(matches[i].id) || matches[i];
 
       // provide asynchronous callback support for loading components
-      if (outMatches[i].constructor == $z.fn) {
+      if (callback && outMatches[i].constructor == $z.fn) {
         callbackCnt++;
-        if (!callback)
-          throw 'Need to use an async selector callback - component hasn\'t attached yet!';
         //make an 'i' closure
         (function(i) {
           outMatches[i].on(function(controller) {
@@ -268,7 +266,12 @@
       // run init methods
       var components = $z('*', container);
       for (var i = 0; i < components.length; i++)
-        if (typeof components[i].init == 'function')
+        if (components[i].constructor == $z.fn)
+          components[i].on(function(com) {
+            if (typeof com.init == 'function')
+              com.init();
+          });
+        else if (typeof components[i].init == 'function')
           components[i].init();
 
       if (complete)
@@ -276,7 +279,7 @@
     }
     
     // the only time a string is a moduleId
-    $z.render.renderItem(structure, options, els.write, _complete)
+    $z.render.renderItem(structure, options, els.write, _complete);
   }
   
   $z._nextComponentId = 1;
@@ -857,9 +860,12 @@
    */
   
   var disposeComponent = function(component) {
-    if (component && component.dispose && !component._disposed) {
-      component.dispose(true);
-      component._disposed = true;
+    var notAttached = component.constructor == $z.fn;
+    if (component && (component.dispose && !component._disposed) || notAttached) {
+      if (!notAttached) {
+        component.dispose(true);
+        component._disposed = true;
+      }
       for (var id in $z._components)
         if ($z._components[id] == component) {
           // remove any style tag
@@ -867,7 +873,10 @@
           if (style && style[0]) {
             style[0].parentNode.removeChild(style[0]);
           }
-          delete $z._components[id];
+          if (notAttached)
+            $z._components[id] = false;
+          else
+            delete $z._components[id];
           break;
         }
     }
