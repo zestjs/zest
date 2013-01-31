@@ -27,7 +27,7 @@
  * http://zestjs.org
  * 
  */
-define(['zoe', 'is!browser?./zest-render', './escape', './component', 'css'], function(zoe, $z, escape, Component) {
+define(['zoe', 'is!browser?./zest-render', './escape', './component', 'css', 'json/json'], function(zoe, $z, escape, Component) {
   $z = $z || {};
   //component adds zoe onto $z
   $z.Component = Component;
