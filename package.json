@@ -3,7 +3,7 @@
   "volo": {
     "type": "directory",
     "dependencies": {
-      "selector": "guybedford/selector/master",
+      "amdquery": "guybedford/amdquery/master",
       "json": "guybedford/json/master",
       "require-inline": "guybedford/require-inline/master",
       "require-css": "guybedford/require-css/master",

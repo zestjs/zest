@@ -16,7 +16,7 @@
  */
 (function (root, factory) {
   if (typeof define === 'function' && define.amd)
-    define(['require', 'selector', 'module', './com!'], factory);
+    define(['require', 'amdquery', 'module', './com!'], factory);
   else
     factory(null, window.$ || document.querySelectorAll, null);
 }(this, function(req, $, module) {
@@ -39,32 +39,14 @@
   
   /*
    * Component selector
-   *
-   * Allows for selecting hierarchies of components, separated by spaces
-   *
-   * Id and type selection can be made for example:
-   *
-   * #component-3 Picture
-   *
-   * Will give all components of type Picture inside the component of id picture3
-   *
-   *
-   * When multiple components are returned, an array is provided
-   * When a single component is found, the direct component is provided.
-   *
-   * As with the contextual selector, context can be a container or array of consecutive dom nodes.
-   * In the case of a container, selection is made excluding the container, but
-   * for a list of dom nodes, the items themselves are included in the selection root.
    * 
-   * Ocassionally, one would expect to get a list of items, but it may turn out to only
-   * be one when there is only one item. For ease of coding it can be useful to still get
-   * this single item back in an array. To specify this, simply provide the suffix "*" to the
-   * selector.
+   * Standard DOM selector returning array of Zest controllers instead of DOM elements
+   * where applicable.
    *
    * If no selector is provided, all components are returned.
    * If no context is provided, this is checked to see if it is a controller, followed by document.
    *
-   * This allows for contextual component selection with
+   * This allows for contextual component selection with:
    *
    * component.$z = $z.$z
    * 
@@ -85,35 +67,8 @@
 
     context = context || $z.getElement(this) || document;
 
-    /* if (componentSelector.indexOf(',') != -1)
-      throw 'Multiple component selection not currently supported.'
-
-    var relationRegEx = /\s*[>+~]\s*|\s+/g;
-
-    var relations = componentSelector.match(relationRegEx) || [];
-
-    // break down the selector into separate terms (separated by the standard relations)
-    var terms = componentSelector.split(relationRegEx);
-
-    var standardSelector = '';
-
-    for (var i = 0; i < terms.length; i++) {
-      // check each term for a type name starting with a capital letter
-      var typeName;
-      if ((typeName = terms[i].match(/^[A-Z][^\.#:\[\*]* /))) {
-        // replace the type name with '*[component="typeName"]'
-        terms[i] = '*[' + typeAttr + '="' + typeName[0] + '"]' + terms[i].substr(typeName[0].length);
-      }
-
-      standardSelector += terms[i] + (relations[i] || '');
-    }
-
-    // trim the selector and ensure that the last item is always a component
-    standardSelector = standardSelector.trim() + '[' + typeAttr + ']';
-    */ 
-
     // run the standard selector
-    var matches = $z.$(componentSelector, context);
+    var matches = $(componentSelector, context);
 
     if (selectOne)
       matches = matches[0] ? [matches[0]] : [];
@@ -166,67 +121,11 @@
    * when an array, context behaves as if contained in an imaginary parent
    * container, allowing selection of the array items themselves
    *
-   * context array is assumed as sibling elements. if not, things will break.
    */
   $z.$ = function(selector, context) {
-    
     context = context || $z.getElement(this) || document;
 
-    // array case - use first container element
-    if (!context.nodeType && context.length && context[0])
-      context = context[0];
-
-    // non array case - standard selection
-    if (!context.nodeType)
-      throw 'Selection context must be a DOM node';
-
-    // determine if we have a direct contextual root child
-    selector = selector.trim();
-    var directContextChild = selector.substr(0, 1) == '>';
-    if (directContextChild)
-      selector = selector.substr(1).trim();
-
-    if (!directContextChild)
-      return $(selector, context);
-
-    // expand the context with a unique selector for the direct context child
-    var createdId;
-    if (!context.id) {
-      var curNum = 1;
-      do {
-        createdId = 'zcontext' + curNum++;
-      } while (document.getElementById(createdId));
-      context.id = createdId;
-    }
-
-    var expandedContext = context.parentNode;
-    var expandedSelector = '#' + context.id + '>' + selector;
-    var matches = $(expandedSelector, expandedContext);
-    if (createdId)
-      context.id = '';
-    return matches;
-
-    // OLD array case - run selector on context parent including direct child support, then filter to context elements
-    /* var matches = $z.$(selector, context[0].parentNode);
-
-    var filtered;
-    if (matches instanceof NodeList)
-      filtered = [];
-    else
-      filtered = $(''); //empty selector
-    
-    for (var i = 0; i < matches.length; i++) {
-      var parent = matches[i];
-      outer: 
-      while (parent && parent != document) {
-        for (var j = 0; j < context.length; j++)
-          if (context[j] == parent) {
-            filtered.push(matches[i]);
-            break outer;
-          }
-        parent = parent.parentNode;
-      }
-    } */
+    return $(selector, context);
   }
   
   /* 
