@@ -16,7 +16,7 @@
  */
 (function (root, factory) {
   if (typeof define === 'function' && define.amd)
-    define(['require', 'amdquery', 'module', './com!'], factory);
+    define(['require', 'selector', 'module', './com!'], factory);
   else
     factory(null, window.$ || document.querySelectorAll, null);
 }(this, function(req, $, module) {
