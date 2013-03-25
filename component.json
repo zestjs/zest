@@ -3,8 +3,8 @@
   "version": "0.0.1",
   "main": "zest.js",
   "dependencies": {
-    "json": "~0.0.1",
-    "css": "~0",
-    "zoe": "0.0.1"
+    "json": "guybedford/json#~0.0.1",
+    "css": "guybedford/require-css#~0",
+    "zoe": "zestjs/zoe#0.0.1"
   }
 }
