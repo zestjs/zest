@@ -1,0 +1,10 @@
+{
+  "name": "zest",
+  "version": "0.0.1",
+  "main": "zest.js",
+  "dependencies": {
+    "json": "~0.0.1",
+    "css": "~0",
+    "zoe": "0.0.1"
+  }
+}
