@@ -4,10 +4,10 @@
     "type": "directory",
     "dependencies": {
       "selector": "guybedford/selector/master",
-      "json": "guybedford/json/master",
-      "require-inline": "guybedford/require-inline/master",
-      "require-css": "guybedford/require-css/master",
-      "zoe": "https://raw.github.com/zestjs/zoe/master/zoe.js",
+      "json": "guybedford/json/0.0.1",
+      "require-inline": "guybedford/require-inline/0.0.1",
+      "require-css": "guybedford/require-css/0.0.1",
+      "zoe": "https://raw.github.com/zestjs/zoe/0.0.1/zoe.js",
       "require-coffee": "guybedford/require-coffee/master"
     }
   }
