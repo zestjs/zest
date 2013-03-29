@@ -30,7 +30,8 @@ if (false) define({});
 
 (function() {
   // get the script tag for this script
-  var scriptTag = Array.prototype.pop.call(document.getElementsByTagName('script'));
+  var scripts = document.getElementsByTagName('script');
+  var scriptTag = scripts[scripts.length - 1];
   
   var zid = scriptTag.getAttribute('data-zid');
   
