@@ -429,6 +429,9 @@
 
       if (_type && _type.substr(0, 1).toUpperCase() != _type.substr(0, 1))
         throw 'Type names must always start with an uppercase letter.';
+        
+      delete options.id;
+      delete options.type;
       
       var renderAttach = function(els) {
         var el = els && els[0];
