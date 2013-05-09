@@ -234,9 +234,16 @@
     else if (structure instanceof Array)
       self.renderArray(structure, { global: options.global }, write, complete);
     
-    // render component
-    else if (structure.render)
-      self.renderComponent(structure, options, write, complete);
+    else if (structure.render) {
+      var rc = false;
+      for (var p in structure) {
+        if (p != 'render' && p != 'options')
+          // render component
+          return self.renderComponent(structure, options, write, complete);
+      }
+      // instance render
+      return self.renderItem(structure.render, zoe.extend(options, structure.options), write, complete)
+    }
     
     // empty render component
     else if ('render' in structure)
